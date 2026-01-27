@@ -1,6 +1,9 @@
 import { Body, Controller, Post, Res } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { type Response } from "express";
+import { ApiBody } from "@nestjs/swagger";
+import { AuthDto } from "./dto/auth.dto";
+import { OtpDto } from "./dto/otp.dto";
 
 @Controller('auth')
 export class AuthController {
@@ -9,8 +12,11 @@ export class AuthController {
     ) { }
 
     @Post()
+    @ApiBody({
+        type: AuthDto
+    })
     async auth(
-        @Body() body: { phone: string; password?: string },
+        @Body() body: AuthDto,
         @Res({ passthrough: true }) res: Response, // cookie yuborish uchun
     ) {
         const { phone, password } = body;
@@ -39,8 +45,11 @@ export class AuthController {
     }
 
     @Post('verify-otp')
+    @ApiBody({
+        type: OtpDto
+    })
     async verifyOtp(
-        @Body() body: { phone: string; code: number },
+        @Body() body: OtpDto,
         @Res({ passthrough: true }) res: Response,
     ) {
         const { phone, code } = body;
