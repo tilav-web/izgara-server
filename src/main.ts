@@ -20,8 +20,19 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('swagger', app, document);
 
+  const allowedOrigins = process.env.CORS_ORIGINS?.split(',') ?? [];
+
   app.enableCors({
-    origin: ['http://localhost:5173'],
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Not allowed by CORS ${origin}`));
+      }
+    },
+    credentials: true
   });
 
   app.use(cookieParser());

@@ -1,81 +1,103 @@
 import { Body, Controller, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { type Response } from "express";
-import { ApiBody } from "@nestjs/swagger";
 import { AuthDto } from "./dto/auth.dto";
 import { OtpDto } from "./dto/otp.dto";
 import { RefreshDto } from "./dto/refresh.dto";
 
 @Controller('auth')
 export class AuthController {
-    constructor(
-        private readonly authService: AuthService
-    ) { }
+  constructor(
+    private readonly authService: AuthService
+  ) { }
 
-    @Post()
-    @ApiBody({
-        type: AuthDto
-    })
-    async auth(
-        @Body() body: AuthDto,
-        @Res({ passthrough: true }) res: Response, // cookie yuborish uchun
-    ) {
-        const { phone, password } = body;
+  @Post()
+  async auth(
+    @Body() body: AuthDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { phone, password } = body;
+    const result = await this.authService.auth({ phone, password });
 
-        const result = await this.authService.auth({ phone, password });
+    const origin = req.headers['origin'] || '';
 
-        if ('access_token' in result && 'refresh_token' in result) {
-            res.cookie('refresh_token', result.refresh_token, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                maxAge: 7 * 24 * 60 * 60 * 1000,
-                sameSite: 'strict',
-            });
+    const allowedOrigins =
+      process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) ?? [];
 
-            return {
-                access_token: result.access_token,
-                auth: result.auth,
-            };
-        }
+    const isWeb = !!origin && allowedOrigins.includes(origin);
 
-        // Oddiy user uchun
-        return {
-            message: result.message,
-            code: result.code
-        };
-    }
-
-    @Post('verify-otp')
-    @ApiBody({
-        type: OtpDto
-    })
-    async verifyOtp(
-        @Body() body: OtpDto,
-        @Res({ passthrough: true }) res: Response,
-    ) {
-        const { phone, code } = body;
-        const result = await this.authService.verifyOtp({ phone, code });
-
-        // Refresh tokenni cookie ga qo‘yish
+    if ('access_token' in result && 'refresh_token' in result) {
+      if (isWeb) {
+        // Web: refresh tokenni cookie ga yozish
         res.cookie('refresh_token', result.refresh_token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-            sameSite: 'strict',
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+          sameSite: 'strict',
         });
-
         return {
-            access_token: result.access_token,
-            auth: result.auth,
+          access_token: result.access_token,
+          auth: result.auth,
         };
+      } else {
+        // Mobile: refresh tokenni body orqali yuborish
+        return {
+          access_token: result.access_token,
+          refresh_token: result.refresh_token,
+          auth: result.auth,
+        };
+      }
     }
 
-    @Post('/refresh-token')
-    async refreshToken(@Req() req: Request & { cookies: { refresh_token?: string } }, @Body() body: RefreshDto) {
-        const refresh_token = req.cookies.refresh_token || body.refresh_token
-        if (!refresh_token) throw new UnauthorizedException('Refresh eskirgan qayta login qiling!')
-        const access_token = await this.authService.refreshToken(refresh_token)
-        return access_token
+    // Oddiy user uchun
+    return {
+      message: result.message,
+      code: result.code
+    };
+  }
+
+  @Post('verify-otp')
+  async verifyOtp(
+    @Body() body: OtpDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { phone, code } = body;
+    const result = await this.authService.verifyOtp({ phone, code });
+
+    const allowedOrigins =
+      process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) ?? [];
+
+    const isWeb = !!origin && allowedOrigins.includes(origin);
+
+    if (isWeb) {
+      // Web: refresh tokenni cookie ga yozish
+      res.cookie('refresh_token', result.refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        sameSite: 'strict',
+      });
+      return {
+        access_token: result.access_token,
+        auth: result.auth,
+      };
+    } else {
+      // Mobile: refresh tokenni body orqali yuborish
+      return {
+        access_token: result.access_token,
+        refresh_token: result.refresh_token,
+        auth: result.auth,
+      };
     }
+  }
+
+  @Post('/refresh-token')
+  async refreshToken(@Req() req: Request & { cookies: { refresh_token?: string } }, @Body() body: RefreshDto) {
+    const refresh_token = req.cookies.refresh_token || body.refresh_token
+    if (!refresh_token) throw new UnauthorizedException('Refresh eskirgan qayta login qiling!')
+    const access_token = await this.authService.refreshToken(refresh_token)
+    return access_token
+  }
 
 }
