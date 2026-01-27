@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RedisModule } from './modules/redis/redis.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { SeedModule } from './seed/seed.module';
 
 @Module({
   imports: [
@@ -26,7 +28,9 @@ import { RedisModule } from './modules/redis/redis.module';
         }
       }
     }),
-    RedisModule
+    RedisModule,
+    AuthModule,
+    SeedModule
   ],
 })
 export class AppModule { }
