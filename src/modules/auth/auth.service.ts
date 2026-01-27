@@ -171,7 +171,7 @@ export class AuthService {
             role: payload.role,
         });
 
-        return access_token;
+        return { access_token };
     }
 
 }
