@@ -160,4 +160,18 @@ export class AuthService {
         return { auth, access_token, refresh_token }
     }
 
+    async refreshToken(refresh_token: string) {
+        const payload = await this.jwtService.verifyAsync<{
+            id: number,
+            role: AuthRoleEnum
+        }>(refresh_token)
+
+        const access_token = this.jwtService.sign({
+            id: payload.id,
+            role: payload.role,
+        });
+
+        return access_token;
+    }
+
 }

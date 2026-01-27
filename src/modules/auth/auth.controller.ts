@@ -1,9 +1,10 @@
-import { Body, Controller, Post, Res } from "@nestjs/common";
+import { Body, Controller, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { type Response } from "express";
 import { ApiBody } from "@nestjs/swagger";
 import { AuthDto } from "./dto/auth.dto";
 import { OtpDto } from "./dto/otp.dto";
+import { RefreshDto } from "./dto/refresh.dto";
 
 @Controller('auth')
 export class AuthController {
@@ -67,6 +68,14 @@ export class AuthController {
             access_token: result.access_token,
             auth: result.auth,
         };
+    }
+
+    @Post('/refresh-token')
+    async refreshToken(@Req() req: Request & { cookies: { refresh_token?: string } }, @Body() body: RefreshDto) {
+        const refresh_token = req.cookies.refresh_token || body.refresh_token
+        if (!refresh_token) throw new UnauthorizedException('Refresh eskirgan qayta login qiling!')
+        const access_token = await this.authService.refreshToken(refresh_token)
+        return access_token
     }
 
 }
