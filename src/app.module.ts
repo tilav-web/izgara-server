@@ -4,6 +4,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { RedisModule } from './modules/redis/redis.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SeedModule } from './seed/seed.module';
+import { CategoryModule } from './modules/category/category.module';
+import { ProductModule } from './modules/product/product.module';
+import { ModifierModule } from './modules/modifier/modifier.module';
+import { ModifierGroupModule } from './modules/modifierGroup/modifier-group.module';
 
 @Module({
   imports: [
@@ -30,7 +34,11 @@ import { SeedModule } from './seed/seed.module';
     }),
     RedisModule,
     AuthModule,
-    SeedModule
+    SeedModule,
+    CategoryModule,
+    ProductModule,
+    ModifierModule,
+    ModifierGroupModule
   ],
 })
 export class AppModule { }

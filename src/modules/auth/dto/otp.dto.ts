@@ -10,7 +10,7 @@ export class OtpDto {
     phone: string
 
     @ApiProperty({
-        example: 1234,
+        example: 4444,
         description: "1 martalik kod 1 daqiqa amal qiladi va so'ng yangisini olish uchun so'rov yuborishingiz kerak!"
     })
     @IsNumber()
