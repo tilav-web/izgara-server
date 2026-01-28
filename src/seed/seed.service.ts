@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { Auth } from '../modules/auth/auth.entity';
 import { AuthRoleEnum } from '../modules/auth/enums/auth-role.enum';
 import { regexPhone } from '../modules/auth/utils/regex-phone';
+import { User } from '../modules/user/user.entity';
 
 @Injectable()
 export class SeedSuperAdminService {
@@ -13,6 +14,7 @@ export class SeedSuperAdminService {
 
     constructor(
         @InjectRepository(Auth) private readonly authRepository: Repository<Auth>,
+        @InjectRepository(User) private readonly userRepository: Repository<User>,
         private readonly configService: ConfigService,
     ) { }
 
@@ -28,6 +30,9 @@ export class SeedSuperAdminService {
 
         const phone = this.configService.get<string>('SUPERADMIN_PHONE');
         const rawPassword = this.configService.get<string>('SUPERADMIN_PASSWORD');
+        const first_name = this.configService.get<string>('SUPERADMIN_FIRST_NAME');
+        const last_name = this.configService.get<string>('SUPERADMIN_LAST_NAME');
+
 
         if (!phone || !rawPassword) {
             const msg = `
@@ -50,14 +55,15 @@ export class SeedSuperAdminService {
             throw new BadRequestException("Telefon raqami O‘zbekiston formatida emas");
         }
 
-
-
         const password = await bcrypt.hash(rawPassword, 10);
 
+        let user = this.userRepository.create({ first_name, last_name, phone: cleanPhone })
+        user = await this.userRepository.save(user)
         await this.authRepository.save({
             phone: cleanPhone,
             password,
             role: AuthRoleEnum.SUPERADMIN,
+            user
         });
 
         this.logger.log('Superadmin created successfully!');

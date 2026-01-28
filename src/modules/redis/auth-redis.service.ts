@@ -4,7 +4,7 @@ import { CACHE_TTL } from "../../utils/constants";
 import { Auth } from "../auth/auth.entity";
 
 @Injectable()
-export class RedisAuthService {
+export class AuthRedisService {
     constructor(
         @Inject('REDIS_CLIENT') private readonly redis: Redis
     ) { }

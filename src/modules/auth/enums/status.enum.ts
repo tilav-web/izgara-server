@@ -1,0 +1,6 @@
+export enum AuthStatusEnum {
+    ACTIVE = 'ACTIVE',
+    BLOCK = 'BLOCK',
+    DELETED = 'DELETED',
+    ACCOUNT_DELETED = 'ACCOUNT_DELETED'
+}

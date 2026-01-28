@@ -3,7 +3,7 @@ import Redis from "ioredis";
 import { CACHE_TTL } from "../../utils/constants";
 
 @Injectable()
-export class RedisOtpService {
+export class OtpRedisService {
     constructor(
         @Inject('REDIS_CLIENT') private readonly redis: Redis
     ) { }

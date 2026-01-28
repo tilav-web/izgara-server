@@ -38,14 +38,13 @@ export class AuthController {
         });
         return {
           access_token: result.access_token,
-          auth: result.auth,
         };
       } else {
         // Mobile: refresh tokenni body orqali yuborish
         return {
           access_token: result.access_token,
           refresh_token: result.refresh_token,
-          auth: result.auth,
+          user: result.user
         };
       }
     }
@@ -57,14 +56,15 @@ export class AuthController {
     };
   }
 
-  @Post('verify-otp')
+  @Post('/verify-otp')
   async verifyOtp(
     @Body() body: OtpDto,
     @Res({ passthrough: true }) res: Response,
+    @Req() req: Request
   ) {
     const { phone, code } = body;
     const result = await this.authService.verifyOtp({ phone, code });
-
+    const origin = req.headers['origin'] ?? 'Mavjut emas'
     const allowedOrigins =
       process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) ?? [];
 
@@ -80,14 +80,14 @@ export class AuthController {
       });
       return {
         access_token: result.access_token,
-        auth: result.auth,
+        user: result.user
       };
     } else {
       // Mobile: refresh tokenni body orqali yuborish
       return {
         access_token: result.access_token,
         refresh_token: result.refresh_token,
-        auth: result.auth,
+        user: result.user
       };
     }
   }

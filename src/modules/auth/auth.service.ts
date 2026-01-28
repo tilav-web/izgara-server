@@ -4,37 +4,39 @@ import { Auth } from "./auth.entity";
 import { Repository } from "typeorm";
 import { otpCodeGenerate } from "./utils/otp-code.generate";
 import { regexPhone } from "./utils/regex-phone";
-import { RedisOtpService } from "../redis/redis-otp.service";
-import { RedisAuthService } from "../redis/redis-auth.service";
+import { OtpRedisService } from "../redis/otp-redis.service";
+import { AuthRedisService } from "../redis/auth-redis.service";
 import { JwtService } from "@nestjs/jwt";
 import { AuthRoleEnum } from "./enums/auth-role.enum";
 import * as bcrypt from 'bcrypt';
+import { UserService } from "../user/user.service";
 
 @Injectable()
 export class AuthService {
     constructor(
         @InjectRepository(Auth) private readonly repository: Repository<Auth>,
-        private readonly redisOtpService: RedisOtpService,
-        private readonly redisAuthService: RedisAuthService,
-        private readonly jwtService: JwtService
+        private readonly otpRedisService: OtpRedisService,
+        private readonly authRedisService: AuthRedisService,
+        private readonly jwtService: JwtService,
+        private readonly userService: UserService
     ) { }
 
     async findById(id: number): Promise<Auth | null> {
-        const authCache = await this.redisAuthService.getAuthDetails({ id })
+        const authCache = await this.authRedisService.getAuthDetails({ id })
         if (authCache) {
             return authCache
         }
-        const authNotFoundCache = await this.redisAuthService.getNotFoundAuth({ id })
+        const authNotFoundCache = await this.authRedisService.getNotFoundAuth({ id })
         if (authNotFoundCache) {
             return null
         }
         const auth = await this.repository.findOne({ where: { id } })
         if (!auth) {
-            await this.redisAuthService.setNotFoundAuth({ id })
+            await this.authRedisService.setNotFoundAuth({ id })
             return null
         }
 
-        this.redisAuthService.setAuthDetails({ auth })
+        this.authRedisService.setAuthDetails({ auth })
         return auth
     }
 
@@ -45,21 +47,21 @@ export class AuthService {
             throw new BadRequestException("Telefon raqami O‘zbekiston formatida emas");
         }
 
-        const authCache = await this.redisAuthService.getAuthDetails({ phone: cleanPhone })
+        const authCache = await this.authRedisService.getAuthDetails({ phone: cleanPhone })
         if (authCache) {
             return authCache
         }
-        const authNotFoundCache = await this.redisAuthService.getNotFoundAuth({ phone: cleanPhone })
+        const authNotFoundCache = await this.authRedisService.getNotFoundAuth({ phone: cleanPhone })
         if (authNotFoundCache) {
             return null
         }
         const auth = await this.repository.findOne({ where: { phone: cleanPhone } })
         if (!auth) {
-            await this.redisAuthService.setNotFoundAuth({ phone: cleanPhone })
+            await this.authRedisService.setNotFoundAuth({ phone: cleanPhone })
             return null
         }
 
-        this.redisAuthService.setAuthDetails({ auth })
+        this.authRedisService.setAuthDetails({ auth })
         return auth
     }
 
@@ -69,14 +71,10 @@ export class AuthService {
         if (!test) {
             throw new BadRequestException("Telefon raqami O‘zbekiston formatida emas");
         }
+
         let auth = await this.findByPhone(cleanPhone)
 
-        if (!auth) {
-            auth = this.repository.create({ phone: cleanPhone });
-            auth = await this.repository.save(auth);
-        }
-
-        if (auth.role === AuthRoleEnum.SUPERADMIN) {
+        if (auth?.role === AuthRoleEnum.SUPERADMIN) {
             if (!password || !auth.password) {
                 throw new BadRequestException('Parol kiritilmagan. Admin sifatida kirish uchun parolingizni kiriting yoki supportga murojaat qiling');
             }
@@ -99,15 +97,15 @@ export class AuthService {
                 expiresIn: "7d"
             }
             );
+            const user = await this.userService.findByAuthId(auth.id)
             return {
-                access_token, refresh_token, auth: {
-                    ...auth,
-                    password: null
-                }
+                access_token,
+                refresh_token,
+                user
             }
         }
 
-        const hasCode = await this.redisOtpService.getOtpByPhone(cleanPhone);
+        const hasCode = await this.otpRedisService.getOtpByPhone(cleanPhone);
 
         if (hasCode) {
             throw new ConflictException(
@@ -117,7 +115,7 @@ export class AuthService {
 
         const code = otpCodeGenerate()
 
-        await this.redisOtpService.setOtpByPhone({ phone: auth.phone, code })
+        await this.otpRedisService.setOtpByPhone({ phone: cleanPhone, code })
         return { message: "Telefon raqamingizga 4 xonali kod yubirdik amal qilish muddati 1 daqiqa!", code } // o'chirish kerak keyinchalik kodni
     }
 
@@ -128,7 +126,7 @@ export class AuthService {
             throw new BadRequestException("Telefon raqami O‘zbekiston formatida emas");
         }
 
-        const verifyOtpResult = await this.redisOtpService.verifyOtpByPhone({ phone: cleanPhone, code })
+        const verifyOtpResult = await this.otpRedisService.verifyOtpByPhone({ phone: cleanPhone, code })
 
         if (verifyOtpResult === 0) {
             throw new BadRequestException('Kodni tekshiring va qayta kiriting')
@@ -138,9 +136,13 @@ export class AuthService {
             throw new BadRequestException('Kodning amal qilish muddati tugadi!')
         }
 
-        const auth = await this.findByPhone(phone)
+        let auth = await this.findByPhone(phone)
 
-        if (!auth) throw new NotFoundException('Foydalanuvchi topilmadi!')
+        if (!auth) {
+            let user = await this.userService.create({ phone: cleanPhone })
+            auth = this.repository.create({ phone: cleanPhone, user })
+            await this.repository.save(auth)
+        }
 
         const access_token = this.jwtService.sign({
             id: auth.id,
@@ -156,8 +158,9 @@ export class AuthService {
             expiresIn: "7d"
         }
         );
+        const user = await this.userService.findByAuthId(auth.id)
 
-        return { auth, access_token, refresh_token }
+        return { access_token, refresh_token, user }
     }
 
     async refreshToken(refresh_token: string) {
@@ -173,5 +176,4 @@ export class AuthService {
 
         return { access_token };
     }
-
 }

@@ -7,7 +7,7 @@ import {
     UnauthorizedException
 } from "@nestjs/common";
 import { AuthService } from "../auth.service";
-import { AuthStatusEnum } from "../utils/status.enum";
+import { AuthStatusEnum } from "../enums/status.enum";
 
 @Injectable()
 export class AuthStatusGuard implements CanActivate {
@@ -35,7 +35,6 @@ export class AuthStatusGuard implements CanActivate {
         switch (auth.status) {
             case AuthStatusEnum.ACTIVE:
                 return true;
-
             case AuthStatusEnum.BLOCK:
                 throw new ForbiddenException(
                     'Sizning akkauntingiz bloklangan. Support bilan bog\'laning.'

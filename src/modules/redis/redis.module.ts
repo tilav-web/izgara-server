@@ -1,8 +1,8 @@
 import { Global, Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import Redis from "ioredis";
-import { RedisOtpService } from "./redis-otp.service";
-import { RedisAuthService } from "./redis-auth.service";
+import { OtpRedisService } from "./otp-redis.service";
+import { AuthRedisService } from "./auth-redis.service";
 
 @Global()
 @Module({
@@ -18,9 +18,9 @@ import { RedisAuthService } from "./redis-auth.service";
             },
             inject: [ConfigService]
         },
-        RedisOtpService,
-        RedisAuthService
+        OtpRedisService,
+        AuthRedisService
     ],
-    exports: ['REDIS_CLIENT', RedisOtpService, RedisAuthService]
+    exports: ['REDIS_CLIENT', OtpRedisService, AuthRedisService]
 })
 export class RedisModule { }

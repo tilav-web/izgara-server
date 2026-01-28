@@ -5,6 +5,7 @@ import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
+import { UserModule } from "../user/user.module";
 
 @Module({
     imports: [
@@ -14,7 +15,8 @@ import { ConfigService } from "@nestjs/config";
             useFactory: (configService: ConfigService) => ({
                 secret: configService.get('JWT_SECRET')
             })
-        })
+        }),
+        UserModule
     ],
     controllers: [AuthController],
     providers: [AuthService],

@@ -1,13 +1,14 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { AuthRoleEnum } from "./enums/auth-role.enum";
-import { AuthStatusEnum } from "./utils/status.enum";
+import { AuthStatusEnum } from "./enums/status.enum";
+import { User } from "../user/user.entity";
 
 @Entity('auths')
 export class Auth {
     @PrimaryGeneratedColumn()
     id: number
 
-    @Column({ type: 'varchar', length: 13, unique: true, nullable: false })
+    @Column({ type: 'varchar', length: 12, unique: true, nullable: false })
     phone: string
 
     @Column({ type: 'text', nullable: true })
@@ -24,4 +25,11 @@ export class Auth {
 
     @UpdateDateColumn()
     updated_at: Date;
+
+    // *************************
+    @OneToOne(() => User, (user) => user.auth, {
+        onDelete: 'CASCADE'
+    })
+    @JoinColumn({ name: 'user_id' })
+    user: User;
 }
