@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import Redis from "ioredis";
 import { OtpRedisService } from "./otp-redis.service";
 import { AuthRedisService } from "./auth-redis.service";
+import { UserRedisService } from "./user-redis.service";
 
 @Global()
 @Module({
@@ -19,8 +20,9 @@ import { AuthRedisService } from "./auth-redis.service";
             inject: [ConfigService]
         },
         OtpRedisService,
-        AuthRedisService
+        AuthRedisService,
+        UserRedisService
     ],
-    exports: ['REDIS_CLIENT', OtpRedisService, AuthRedisService]
+    exports: ['REDIS_CLIENT', OtpRedisService, AuthRedisService, UserRedisService]
 })
 export class RedisModule { }

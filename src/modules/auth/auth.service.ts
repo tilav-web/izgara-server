@@ -10,12 +10,14 @@ import { JwtService } from "@nestjs/jwt";
 import { AuthRoleEnum } from "./enums/auth-role.enum";
 import * as bcrypt from 'bcrypt';
 import { UserService } from "../user/user.service";
+import { UserRedisService } from "../redis/user-redis.service";
 
 @Injectable()
 export class AuthService {
     constructor(
         @InjectRepository(Auth) private readonly repository: Repository<Auth>,
         private readonly otpRedisService: OtpRedisService,
+        private readonly userRedisService: UserRedisService,
         private readonly authRedisService: AuthRedisService,
         private readonly jwtService: JwtService,
         private readonly userService: UserService
@@ -142,6 +144,7 @@ export class AuthService {
             let user = await this.userService.create({ phone: cleanPhone })
             auth = this.repository.create({ phone: cleanPhone, user })
             await this.repository.save(auth)
+            await this.userRedisService.setUserDetails({ user, auth_id: auth.id })
         }
 
         const access_token = this.jwtService.sign({
