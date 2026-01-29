@@ -15,7 +15,9 @@ export class AliPosProductService extends AliPosBaseService {
         if (!this.restaurantId) {
             throw new BadGatewayException('Restaran id si topilmadi!')
         }
-        
+
+        const res = await firstValueFrom(this.httpService.get(ALIPOST_API_ENDPOINTS.PRODUCT.findAll(this.restaurantId)))
+        return res.data.items
     }
 
 }
