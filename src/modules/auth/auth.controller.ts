@@ -76,7 +76,7 @@ export class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: 7 * 24 * 60 * 60 * 1000,
-        sameSite: 'strict',
+        sameSite: 'lax',
       });
       return {
         access_token: result.access_token,
@@ -105,7 +105,7 @@ export class AuthController {
     res.clearCookie('refresh_token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
     });
     res.json({ message: "Tizimdan chiqildi!" })
   }
