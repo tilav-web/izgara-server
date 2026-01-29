@@ -13,10 +13,10 @@ export class Modifier {
     price: number; // Qo'shimchaning alohida narxi [cite: 86]
 
     @Column({ default: 1 })
-    maxQuantity: number; // Mijoz nechta tanlay olishi mumkinligi [cite: 90]
+    max_quantity: number; // Mijoz nechta tanlay olishi mumkinligi [cite: 90]
 
     @Column({ default: 0 })
-    sortOrder: number; // Guruh ichidagi tartibi [cite: 92]
+    sort_order: number; // Guruh ichidagi tartibi [cite: 92]
 
     @ManyToOne(() => ModifierGroup, (group) => group.modifiers)
     group: ModifierGroup; // Modifikator tegishli bo'lgan guruh 

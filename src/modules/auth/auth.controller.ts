@@ -99,4 +99,14 @@ export class AuthController {
     const access_token = await this.authService.refreshToken(refresh_token)
     return access_token
   }
+
+  @Post('/logout')
+  async logOut(@Res({ passthrough: true }) res: Response,) {
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+    res.json({ message: "Tizimdan chiqildi!" })
+  }
 }

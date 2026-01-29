@@ -11,7 +11,7 @@ export class ModifierGroup {
     name: string; // Guruh nomi (masalan: "Pishloqlar") [cite: 72]
 
     @Column()
-    sortOrder: number; // Guruhning ko'rinish tartibi [cite: 72]
+    sort_order: number; // Guruhning ko'rinish tartibi [cite: 72]
 
     @ManyToOne(() => Product, (product) => product.modifier_groups)
     product: Product; // Ushbu guruh qaysi mahsulotga tegishli ekanligi 
