@@ -1,6 +1,7 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { Auth } from "../auth/auth.entity";
 import { AuthStatusEnum } from "../auth/enums/status.enum";
+import { AuthRoleEnum } from "../auth/enums/auth-role.enum";
 
 @Entity('users')
 export class User {
@@ -18,6 +19,9 @@ export class User {
 
     @Column({ type: 'enum', enum: AuthStatusEnum, default: AuthStatusEnum.ACTIVE })
     status: AuthStatusEnum
+
+    @Column({ type: 'enum', enum: AuthRoleEnum, default: AuthRoleEnum.USER })
+    role: AuthRoleEnum
 
     @CreateDateColumn()
     created_at: Date;

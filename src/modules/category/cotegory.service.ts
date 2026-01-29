@@ -10,4 +10,16 @@ export class CategoryService {
         @InjectRepository(Category) private readonly repository: Repository<Category>
     ) { }
 
+    async findAll() {
+        return this.repository.find()
+    }
+
+    async upsertMany(data: {
+        id: string,
+        name: string,
+        sort_order: number
+    }[]) {
+        return this.repository.upsert(data, ['id'])
+    }
+
 }

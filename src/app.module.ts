@@ -8,6 +8,7 @@ import { CategoryModule } from './modules/category/category.module';
 import { ProductModule } from './modules/product/product.module';
 import { ModifierModule } from './modules/modifier/modifier.module';
 import { ModifierGroupModule } from './modules/modifierGroup/modifier-group.module';
+import { AliPosModule } from './modules/alipos/alipos.module';
 
 @Module({
   imports: [
@@ -33,8 +34,9 @@ import { ModifierGroupModule } from './modules/modifierGroup/modifier-group.modu
       }
     }),
     RedisModule,
-    AuthModule,
     SeedModule,
+    AliPosModule,
+    AuthModule,
     CategoryModule,
     ProductModule,
     ModifierModule,

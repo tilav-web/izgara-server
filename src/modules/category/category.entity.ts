@@ -4,7 +4,7 @@ import { Product } from "../product/product.entity";
 @Entity('categories')
 export class Category {
     @PrimaryColumn()
-    id: number
+    id: string
 
     @Column({ type: 'text', })
     name: string

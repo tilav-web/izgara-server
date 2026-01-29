@@ -99,5 +99,4 @@ export class AuthController {
     const access_token = await this.authService.refreshToken(refresh_token)
     return access_token
   }
-
 }

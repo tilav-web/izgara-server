@@ -7,4 +7,8 @@ export class CategoryController {
         private readonly categoryService: CategoryService
     ) { }
 
+    @Get()
+    async findAll() {
+        return this.categoryService.findAll()
+    }
 }

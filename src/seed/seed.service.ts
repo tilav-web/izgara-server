@@ -57,7 +57,7 @@ export class SeedSuperAdminService {
 
         const password = await bcrypt.hash(rawPassword, 10);
 
-        let user = this.userRepository.create({ first_name, last_name, phone: cleanPhone })
+        let user = this.userRepository.create({ first_name, last_name, phone: cleanPhone, role: AuthRoleEnum.SUPERADMIN })
         user = await this.userRepository.save(user)
         await this.authRepository.save({
             phone: cleanPhone,

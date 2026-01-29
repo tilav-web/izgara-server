@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryColumn, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Column, Entity, PrimaryColumn, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn, JoinColumn } from 'typeorm';
 import { Category } from '../category/category.entity';
 import { MeasureEnum } from './enums/measure.enum';
 import { ModifierGroup } from '../modifierGroup/modifier-group.entity';
@@ -21,7 +21,10 @@ export class Product {
     vat: number; // QQS stavkasi foizda [cite: 56]
 
     @Column({ type: 'enum', enum: MeasureEnum, default: MeasureEnum.PCS })
-    measure_unit: MeasureEnum; // O'lchov birligi (0-шт, 1-кг, 2-л) [cite: 63]
+    measure_unit: MeasureEnum; // O'lchov birligi (0-шт, 1-кг, 2-л)
+
+    @Column({ type: 'float', default: 0 })
+    measure: number; // Mahsulot hajmi yoki og'irligi (masalan: 1.5 yoki 0.5)
 
     @Column({ default: 0 })
     sort_order: number; // Kategoriyasi ichidagi tartib raqami [cite: 42]
@@ -29,7 +32,11 @@ export class Product {
     @Column({ default: false })
     is_active: boolean; // Mahsulot stop-listda ekanligi (Webhook orqali boshqariladi) [cite: 161]
 
+    @Column()
+    category_id: string;
+
     @ManyToOne(() => Category, (category) => category.products)
+    @JoinColumn({ name: 'category_id' })
     category: Category;
 
     @OneToMany(() => ModifierGroup, (group) => group.product)
