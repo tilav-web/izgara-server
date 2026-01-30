@@ -1,6 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { AuthService } from "../auth.service";
 import { ROLES_KEY } from "../decorators/roles.decorator";
 import { AuthRoleEnum } from "../enums/auth-role.enum";
 
@@ -8,7 +7,6 @@ import { AuthRoleEnum } from "../enums/auth-role.enum";
 export class AuthRoleGuard implements CanActivate {
     constructor(
         private reflector: Reflector,
-        private readonly authService: AuthService
     ) { }
 
     async canActivate(context: ExecutionContext) {
@@ -16,6 +14,7 @@ export class AuthRoleGuard implements CanActivate {
             ROLES_KEY,
             [context.getHandler(), context.getClass()]
         );
+        
 
         if (!requiredRoles || !requiredRoles.length) {
             return true;

@@ -11,6 +11,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { Product } from "../product/product.entity";
 import { AliPosController } from "./controllers/alipos.controller";
 import { AliPosService } from "./services/alipos.service";
+import { AuthModule } from "../auth/auth.module";
 
 @Module({
     imports: [
@@ -20,7 +21,8 @@ import { AliPosService } from "./services/alipos.service";
             timeout: 5000
         }),
         CategoryModule,
-        ProductModule
+        ProductModule,
+        AuthModule
     ],
     controllers: [AliPosProductController, AliPosCategoryController, AliPosController],
     providers: [AliPosBaseService, AliPosCategoryService, AliPosProductService, AliPosService],

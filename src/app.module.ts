@@ -9,6 +9,7 @@ import { ProductModule } from './modules/product/product.module';
 import { ModifierModule } from './modules/modifier/modifier.module';
 import { ModifierGroupModule } from './modules/modifierGroup/modifier-group.module';
 import { AliPosModule } from './modules/alipos/alipos.module';
+import { FileModule } from './modules/file/file.module';
 
 @Module({
   imports: [
@@ -40,7 +41,8 @@ import { AliPosModule } from './modules/alipos/alipos.module';
     CategoryModule,
     ProductModule,
     ModifierModule,
-    ModifierGroupModule
+    ModifierGroupModule,
+    FileModule
   ],
 })
 export class AppModule { }

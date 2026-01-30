@@ -25,11 +25,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     async validate(payload: { id: number }) {
         if (!payload.id) {
-            throw new UnauthorizedException();
+            throw new UnauthorizedException("Foydalanuvchi id si topilmadi");
         }
         const auth = await this.authService.findById(payload.id)
         if (!auth) {
-            throw new UnauthorizedException();
+            throw new UnauthorizedException('Foydalanuvchi malumotlari topilmadi!');
         }
         return auth as { id: number, role: AuthRoleEnum };
     }

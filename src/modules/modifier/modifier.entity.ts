@@ -9,6 +9,9 @@ export class Modifier {
     @Column()
     name: string; // Qo'shimcha nomi (masalan: "Ketchup") [cite: 83]
 
+    @Column({ type: 'text', nullable: true, default: null })
+    image: string
+
     @Column({ type: 'decimal', precision: 12, scale: 2 })
     price: number; // Qo'shimchaning alohida narxi [cite: 86]
 

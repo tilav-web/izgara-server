@@ -26,8 +26,6 @@ export class ModifierGroup {
     @Column() // Shunchaki ID bilan ishlash uchun qo'shimcha ustun
     product_id: string;
 
-    // modifier-group.entity.ts ichida
-
     @OneToMany(() => Modifier, (modifier) => modifier.group, { cascade: true })
     modifiers: Modifier[];
 
