@@ -38,6 +38,7 @@ export class AuthController {
         });
         return {
           access_token: result.access_token,
+          user: result.user
         };
       } else {
         // Mobile: refresh tokenni body orqali yuborish
@@ -76,7 +77,7 @@ export class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: 7 * 24 * 60 * 60 * 1000,
-        sameSite: 'lax',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       });
       return {
         access_token: result.access_token,
@@ -94,7 +95,22 @@ export class AuthController {
 
   @Post('/refresh-token')
   async refreshToken(@Req() req: Request & { cookies: { refresh_token?: string } }, @Body() body: RefreshDto) {
-    const refresh_token = req.cookies.refresh_token || body.refresh_token
+
+    const origin = req.headers['origin'] ?? 'Mavjut emas'
+    const allowedOrigins =
+      process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) ?? [];
+
+    const isWeb = !!origin && allowedOrigins.includes(origin);
+
+    if (isWeb) {
+      const refresh_token = req.cookies['refresh_token']
+      if (!refresh_token) throw new UnauthorizedException('Refresh eskirgan qayta login qiling!')
+      const access_token = await this.authService.refreshToken(refresh_token)
+      return access_token
+    }
+
+    const refresh_token = body.refresh_token
+
     if (!refresh_token) throw new UnauthorizedException('Refresh eskirgan qayta login qiling!')
     const access_token = await this.authService.refreshToken(refresh_token)
     return access_token
