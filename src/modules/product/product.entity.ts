@@ -42,8 +42,8 @@ export class Product {
     @JoinColumn({ name: 'category_id' })
     category: Category;
 
-    @OneToMany(() => ModifierGroup, (group) => group.product)
-    modifier_groups: ModifierGroup[]; // Mahsulotga tegishli qo'shimchalar guruhlari [cite: 69]
+    @OneToMany(() => ModifierGroup, (group) => group.product, { cascade: true })
+    modifier_groups: ModifierGroup[];
 
     @CreateDateColumn()
     created_at: Date;

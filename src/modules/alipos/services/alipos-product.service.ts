@@ -1,48 +1,39 @@
-import { BadGatewayException, Injectable } from "@nestjs/common";
+import { BadGatewayException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { AliPosBaseService } from "./base.service";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { ALIPOST_API_ENDPOINTS } from "../utils/constants";
 import { ProductService } from "../../product/product.service";
 import { MeasureEnum } from "../../product/enums/measure.enum";
+import { ConfigService } from "@nestjs/config";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Product } from "../../product/product.entity";
+import { Repository } from "typeorm";
 
 @Injectable()
 export class AliPosProductService extends AliPosBaseService {
-    constructor(httpService: HttpService, private readonly productService: ProductService) {
-        super(httpService)
+    constructor(httpService: HttpService, configService: ConfigService, private readonly productService: ProductService, @InjectRepository(Product) private readonly repository: Repository<Product>) {
+        super(httpService, configService)
     }
 
-    async writeToDb() {
-        if (!this.restaurantId) {
-            throw new BadGatewayException('Restaran id si topilmadi!')
+    async update({ id, restaurantId, countNum, clientId, clientSecret }: {
+        id: string;
+        restaurantId: string;
+        countNum: number;
+        clientId: string;
+        clientSecret: string;
+    }) {
+        const originalId = this.configService.get('ALIPOS_CLIENT_ID');
+        const originalSecret = this.configService.get('ALIPOS_CLIENT_SECRET');
+
+        if (clientId !== originalId || clientSecret !== originalSecret || this.restaurantId !== restaurantId) {
+            throw new UnauthorizedException('Xavfsizlik kalitlari xato! Bu soʻrov begona manbadan kelgan.');
         }
 
-        const res = await firstValueFrom(this.httpService.get(ALIPOST_API_ENDPOINTS.PRODUCT.findAll(this.restaurantId)))
-        const products = res.data.items.map((item: {
-            id: string;
-            categoryId: string;
-            name: string;
-            description: string;
-            price: number;
-            vat: number;
-            measure: number;
-            measureUnit: "мл" | "г" | "шт",
-            sortOrder: number
-        }) => ({
-            id: item.id,
-            category_id: item.categoryId,
-            name: item.name,
-            description: item.description,
-            price: item.price,
-            vat: item.vat,
-            measure: item.measure,
-            measure_unit: item.measureUnit === 'мл' ? MeasureEnum.L
-                : item.measureUnit === 'г' ? MeasureEnum.KG
-                    : item.measureUnit === 'шт' ? MeasureEnum.PCS
-                        : MeasureEnum.PCS,
-            sort_order: item.sortOrder
-        }));
-        await this.productService.upsertMany(products)
+        const product = await this.repository.findOne({ where: { id } });
+        if (product) {
+            product.is_active = countNum !== 0;
+            return await this.repository.save(product);
+        }
     }
-
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Get, Param, Query } from "@nestjs/common";
 import { ProductService } from "./product.service";
 import { FindAllFilterDto } from "./dto/find-all-filter.dto";
 
@@ -9,6 +9,11 @@ export class ProductController {
     @Get()
     async findAll(@Query() dto: FindAllFilterDto) {
         return this.productService.findAll(dto)
+    }
+
+    @Get('/:id')
+    async findById(@Param('id') id: string) {
+        return this.productService.findById(id)
     }
 
 }

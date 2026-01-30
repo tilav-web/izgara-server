@@ -6,9 +6,4 @@ export class AliPosCategoryController {
     constructor(
         private readonly aliposCategoryService: AliPosCategoryService
     ) { }
-
-    @Get()
-    async writeToDb() {
-        return this.aliposCategoryService.writeToDb()
-    }
 }

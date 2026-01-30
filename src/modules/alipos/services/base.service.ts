@@ -1,13 +1,14 @@
-import { Injectable, OnModuleInit } from "@nestjs/common";
+import { BadGatewayException, Injectable, OnModuleInit } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class AliPosBaseService implements OnModuleInit {
     private accessToken: string | null = null;
     protected restaurantId: string | null = null;
 
-    constructor(protected readonly httpService: HttpService) { }
+    constructor(protected readonly httpService: HttpService, protected readonly configService: ConfigService) { }
 
     async onModuleInit() {
         await this.refreshAccessToken();
@@ -18,10 +19,17 @@ export class AliPosBaseService implements OnModuleInit {
     private async refreshAccessToken() {
         const url = '/security/oauth/token';
 
+        const client_id = this.configService.get<string>('ALIPOS_CLIENT_ID')
+        const client_secret = this.configService.get<string>('ALIPOS_CLIENT_SECRET')
+        const grant_type = this.configService.get<string>('ALIPOS_GRANT_TYPE') || 'client_credentials'
+        if (!client_id || !client_secret || !grant_type) {
+            throw new BadGatewayException('alipos sozlamalari topilmadi!')
+        }
+
         const data = new URLSearchParams({
-            client_id: '7c37e258-7d4e-4f31-8d61-586e22ddbbb6',
-            client_secret: '709c6a50-6a5f-4862-869d-671f5471b6f3',
-            grant_type: 'client_credentials',
+            client_id,
+            client_secret,
+            grant_type,
         });
 
         const response = await firstValueFrom(

@@ -74,7 +74,6 @@ export class SeedService {
     async createDeafultCoinService() {
         try {
             const coinSettings = await this.coinSettingsService.findCoinSettings()
-            this.logger.log(coinSettings);
 
             if (coinSettings) {
                 console.log('Eski coin sozlamalari saqlanib qolgan!');

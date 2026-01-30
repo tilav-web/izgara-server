@@ -1,4 +1,4 @@
-import { Column, Entity, PrimaryColumn, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Column, Entity, PrimaryColumn, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn, JoinColumn } from 'typeorm';
 import { Product } from '../product/product.entity';
 import { Modifier } from '../modifier/modifier.entity';
 
@@ -13,11 +13,23 @@ export class ModifierGroup {
     @Column()
     sort_order: number; // Guruhning ko'rinish tartibi [cite: 72]
 
-    @ManyToOne(() => Product, (product) => product.modifier_groups)
-    product: Product; // Ushbu guruh qaysi mahsulotga tegishli ekanligi 
+    @Column({ type: 'int', default: 0, })
+    min_selected_amount: number
 
-    @OneToMany(() => Modifier, (modifier) => modifier.group)
-    modifiers: Modifier[]; // Guruh ichidagi aniq qo'shimchalar ro'yxati 
+    @Column({ type: 'int', default: 1, })
+    max_selected_amount: number
+
+    @ManyToOne(() => Product, (product) => product.modifier_groups, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'product_id' }) // Bazada aynan shu nomli ustun ochiladi
+    product: Product;
+
+    @Column() // Shunchaki ID bilan ishlash uchun qo'shimcha ustun
+    product_id: string;
+
+    // modifier-group.entity.ts ichida
+
+    @OneToMany(() => Modifier, (modifier) => modifier.group, { cascade: true })
+    modifiers: Modifier[];
 
     @CreateDateColumn()
     created_at: Date;

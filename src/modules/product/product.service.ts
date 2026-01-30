@@ -14,8 +14,8 @@ export class ProductService {
         private readonly coinSettingsService: CoinSettingsService
     ) { }
 
-    async upsertMany(data: { id: string; category_id: string; name: string; description: string; price: number; vat: number; measure: number; measure_unit: MeasureEnum; sort_order: number }[]) {
-        return this.repository.upsert(data, ['id'])
+    async saveMenu(data: Product[]) {
+        return this.repository.save(data);
     }
 
     async findAll({ page = 1, limit = 10, category_id, price_min, price_max }: FindAllFilterDto) {
@@ -58,5 +58,18 @@ export class ProductService {
             limit,
             total_pages: Math.ceil(total / limit)
         }
+    }
+
+    async findById(id: string) {
+        return this.repository.findOne({
+            where: {
+                id
+            },
+            relations: {
+                modifier_groups: {
+                    modifiers: true
+                }
+            }
+        })
     }
 }
