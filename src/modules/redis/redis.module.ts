@@ -4,6 +4,7 @@ import Redis from "ioredis";
 import { OtpRedisService } from "./otp-redis.service";
 import { AuthRedisService } from "./auth-redis.service";
 import { UserRedisService } from "./user-redis.service";
+import { CoinSettingsRedisService } from "./coin-settings-redis.service";
 
 @Global()
 @Module({
@@ -21,8 +22,9 @@ import { UserRedisService } from "./user-redis.service";
         },
         OtpRedisService,
         AuthRedisService,
-        UserRedisService
+        UserRedisService,
+        CoinSettingsRedisService
     ],
-    exports: ['REDIS_CLIENT', OtpRedisService, AuthRedisService, UserRedisService]
+    exports: ['REDIS_CLIENT', OtpRedisService, AuthRedisService, UserRedisService, CoinSettingsRedisService]
 })
 export class RedisModule { }

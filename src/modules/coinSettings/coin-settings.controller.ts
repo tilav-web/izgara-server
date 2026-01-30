@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from "@nestjs/common";
+import { Controller, Get, Patch, UseGuards } from "@nestjs/common";
 import { CoinSettingsService } from "./coin-settings.service";
 import { AuthGuard } from "@nestjs/passport";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -10,10 +10,15 @@ import { AuthRoleGuard } from "../auth/guard/role.guard";
 export class CoinSettingsController {
     constructor(private readonly coinSettingsService: CoinSettingsService) { }
 
-    @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
-    @Roles(AuthRoleEnum.SUPERADMIN)
     @Get()
     async findCoinSetting() {
         return this.coinSettingsService.findCoinSettings()
+    }
+
+    @Patch('/update')
+    @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
+    @Roles(AuthRoleEnum.SUPERADMIN)
+    async updateCoinSettings() {
+
     }
 }
