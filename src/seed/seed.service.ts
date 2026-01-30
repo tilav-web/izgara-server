@@ -7,7 +7,7 @@ import { Auth } from '../modules/auth/auth.entity';
 import { AuthRoleEnum } from '../modules/auth/enums/auth-role.enum';
 import { regexPhone } from '../modules/auth/utils/regex-phone';
 import { User } from '../modules/user/user.entity';
-import { CoinSettingsService } from '../modules/coinSettings/coin-settings.service';
+import { CoinSettings } from '../modules/coinSettings/coin-settings.entity';
 
 @Injectable()
 export class SeedService {
@@ -16,8 +16,8 @@ export class SeedService {
     constructor(
         @InjectRepository(Auth) private readonly authRepository: Repository<Auth>,
         @InjectRepository(User) private readonly userRepository: Repository<User>,
+        @InjectRepository(CoinSettings) private readonly coinSettingsRepository: Repository<CoinSettings>,
         private readonly configService: ConfigService,
-        private readonly coinSettingsService: CoinSettingsService,
     ) { }
 
     async createSuperAdminNotExists() {
@@ -73,8 +73,12 @@ export class SeedService {
 
     async createDeafultCoinService() {
         try {
-            const coinSettings = await this.coinSettingsService.findCoinSettings()
-
+            const coinSettings = await this.coinSettingsRepository.findOne({
+                where: {},
+                order: {
+                    created_at: 'DESC',
+                },
+            })
             if (coinSettings) {
                 console.log('Eski coin sozlamalari saqlanib qolgan!');
                 return
@@ -83,7 +87,7 @@ export class SeedService {
             const min_spend_limit = parseFloat(this.configService.get<string>('MIN_SPEND_LIMIT') ?? '0') ?? undefined;
             const spend_amount_for_one_coin = parseFloat(this.configService.get<string>('SPEND_AMOUNT_FOR_ONE_COIN') ?? '0') ?? undefined;
             const value_per_coin = parseFloat(this.configService.get<string>('VALUE_PER_COIN') ?? '0') ?? undefined;
-            await this.coinSettingsService.createCoinSettings({ max_coins_per_order, min_spend_limit, spend_amount_for_one_coin, value_per_coin })
+            await this.coinSettingsRepository.save({ value_per_coin, spend_amount_for_one_coin, min_spend_limit, max_coins_per_order })
             this.logger.log("coin sozlamalari yaratildi");
 
         } catch (error) {
