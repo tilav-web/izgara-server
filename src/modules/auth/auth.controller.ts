@@ -104,6 +104,8 @@ export class AuthController {
 
     if (isWeb) {
       const refresh_token = req.cookies['refresh_token']
+      console.log(req.cookies);
+
       if (!refresh_token) throw new UnauthorizedException('Refresh eskirgan qayta login qiling!')
       const access_token = await this.authService.refreshToken(refresh_token)
       return access_token
