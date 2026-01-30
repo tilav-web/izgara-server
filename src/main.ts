@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { SeedSuperAdminService } from './seed/seed.service';
+import { SeedService } from './seed/seed.service';
 import cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
@@ -8,8 +8,9 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  const seedService = app.get(SeedSuperAdminService);
+  const seedService = app.get(SeedService);
   await seedService.createSuperAdminNotExists();
+  await seedService.createDeafultCoinService();
 
   //swagger config
   const config = new DocumentBuilder().setTitle("Izgara Api Docs").addBearerAuth({

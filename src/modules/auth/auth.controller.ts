@@ -25,28 +25,34 @@ export class AuthController {
     const allowedOrigins =
       process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) ?? [];
 
-    const isWeb = !!origin && allowedOrigins.includes(origin);
+    // const isWeb = !!origin && allowedOrigins.includes(origin);
 
     if ('access_token' in result && 'refresh_token' in result) {
-      if (isWeb) {
-        // Web: refresh tokenni cookie ga yozish
-        res.cookie('refresh_token', result.refresh_token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          maxAge: 7 * 24 * 60 * 60 * 1000,
-          sameSite: 'lax',
-        });
-        return {
-          access_token: result.access_token,
-        };
-      } else {
-        // Mobile: refresh tokenni body orqali yuborish
-        return {
-          access_token: result.access_token,
-          refresh_token: result.refresh_token,
-          user: result.user
-        };
-      }
+      // if (isWeb) {
+      //   // Web: refresh tokenni cookie ga yozish
+      //   res.cookie('refresh_token', result.refresh_token, {
+      //     httpOnly: true,
+      //     secure: process.env.NODE_ENV === 'production',
+      //     maxAge: 7 * 24 * 60 * 60 * 1000,
+      //     sameSite: 'lax',
+      //   });
+      //   return {
+      //     access_token: result.access_token,
+      //   };
+      // } else {
+      //   // Mobile: refresh tokenni body orqali yuborish
+      //   return {
+      //     access_token: result.access_token,
+      //     refresh_token: result.refresh_token,
+      //     user: result.user
+      //   };
+      // }
+
+      return {
+        access_token: result.access_token,
+        refresh_token: result.refresh_token,
+        user: result.user
+      };
     }
 
     // Oddiy user uchun

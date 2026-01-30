@@ -23,6 +23,9 @@ export class User {
     @Column({ type: 'enum', enum: AuthRoleEnum, default: AuthRoleEnum.USER })
     role: AuthRoleEnum
 
+    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+    coin_balance: number
+
     @CreateDateColumn()
     created_at: Date;
 

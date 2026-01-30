@@ -21,7 +21,7 @@ export class Product {
     image: string
 
     @Column()
-    vat: number; // QQS stavkasi foizda [cite: 56]
+    vat: number; // QQS stavkasi foizda 
 
     @Column({ type: 'enum', enum: MeasureEnum, default: MeasureEnum.PCS })
     measure_unit: MeasureEnum; // O'lchov birligi (0-шт, 1-кг, 2-л)

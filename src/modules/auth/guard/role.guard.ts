@@ -35,7 +35,6 @@ export class AuthRoleGuard implements CanActivate {
                 `Bu amalni bajarish uchun ${requiredRoles.join(' yoki ')} roli kerak. Sizning rolingiz: ${auth.role}`
             );
         }
-
         return true;
     }
 }
