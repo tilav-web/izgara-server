@@ -11,10 +11,18 @@ export class AliPosBaseService implements OnModuleInit {
     constructor(protected readonly httpService: HttpService, protected readonly configService: ConfigService) { }
 
     async onModuleInit() {
-        await this.refreshAccessToken();
-        await this.loadRestaurantId();
-        this.setupInterceptors();
+        try {
+            await this.refreshAccessToken();
+            await this.loadRestaurantId();
+            this.setupInterceptors();
+        } catch (error) {
+            console.warn(
+                '[AliPos] Init skip qilindi:',
+                error?.message || error
+            );
+        }
     }
+
 
     private async refreshAccessToken() {
         const url = '/security/oauth/token';
@@ -23,6 +31,7 @@ export class AliPosBaseService implements OnModuleInit {
         const client_secret = this.configService.get<string>('ALIPOS_CLIENT_SECRET')
         const grant_type = this.configService.get<string>('ALIPOS_GRANT_TYPE') || 'client_credentials'
         if (!client_id || !client_secret || !grant_type) {
+            
             throw new BadGatewayException('alipos sozlamalari topilmadi!')
         }
 
