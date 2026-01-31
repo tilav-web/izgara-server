@@ -46,6 +46,7 @@ export class AliPosBaseService implements OnModuleInit {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             })
         );
+        console.log(response.data.access_token);
 
         this.accessToken = response.data.access_token;
         this.httpService.axiosRef.defaults.headers.common['Authorization'] = `Bearer ${this.accessToken}`;
