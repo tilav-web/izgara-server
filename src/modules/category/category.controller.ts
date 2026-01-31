@@ -4,7 +4,7 @@ import { AuthGuard } from "@nestjs/passport";
 import { AuthRoleGuard } from "../auth/guard/role.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { AuthRoleEnum } from "../auth/enums/auth-role.enum";
-import { ApiConsumes } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiConsumes } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
 
@@ -23,6 +23,7 @@ export class CategoryController {
     @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
     @Roles(AuthRoleEnum.SUPERADMIN)
     @ApiConsumes('multipart/form-data')
+    @ApiBearerAuth('access_token')
     @UseInterceptors(FileInterceptor('image'))
     async updateCategory(
         @Param('id') id: string,

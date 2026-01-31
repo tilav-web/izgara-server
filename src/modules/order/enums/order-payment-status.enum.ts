@@ -1,0 +1,5 @@
+export enum OrderPaymentStatusEnum {
+    PAYMENT_CASH = 'PAYMENT_CASH',
+    PAYMENT_TERMINAL = 'PAYMENT_TERMINAL',
+    PAYMENT_ONLINE = 'PAYMENT_ONLINE'
+}

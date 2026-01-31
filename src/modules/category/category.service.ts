@@ -1,5 +1,4 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { AliPosCategoryService } from "../alipos/services/alipos-category.service";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Category } from "./category.entity";
 import { Repository } from "typeorm";
@@ -38,6 +37,11 @@ export class CategoryService {
         }
 
         if (image) {
+
+            if (category.image) {
+                await this.fileService.deleteFile(category.image)
+            }
+
             category.image = await this.fileService.saveFile({ file: image, folder: FileFolderEnum.CATEGORIES })
         }
         if (name) category.name = name

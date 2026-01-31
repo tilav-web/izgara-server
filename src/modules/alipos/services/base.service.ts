@@ -31,7 +31,7 @@ export class AliPosBaseService implements OnModuleInit {
         const client_secret = this.configService.get<string>('ALIPOS_CLIENT_SECRET')
         const grant_type = this.configService.get<string>('ALIPOS_GRANT_TYPE') || 'client_credentials'
         if (!client_id || !client_secret || !grant_type) {
-            
+
             throw new BadGatewayException('alipos sozlamalari topilmadi!')
         }
 
@@ -60,9 +60,7 @@ export class AliPosBaseService implements OnModuleInit {
             const places = response.data.places;
 
             if (places && places.length > 0) {
-                // Massivning eng oxirgi elementining ID sini olamiz
                 this.restaurantId = places[places.length - 1].id;
-                console.log('Tanlangan Restaurant ID:', this.restaurantId);
             }
         } catch (error) {
             console.error('Restoran ID sini yuklashda xato yuz berdi:', error);

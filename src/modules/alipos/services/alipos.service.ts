@@ -1,4 +1,4 @@
-import { BadGatewayException, Injectable } from "@nestjs/common";
+import { BadGatewayException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { AliPosBaseService } from "./base.service";
 import { HttpService } from "@nestjs/axios";
 import { ALIPOST_API_ENDPOINTS } from "../utils/constants";
@@ -10,6 +10,8 @@ import { Repository } from "typeorm";
 import { firstValueFrom } from "rxjs";
 import { MeasureEnum } from "../../product/enums/measure.enum";
 import { CategoryService } from "../../category/category.service";
+import { Category } from "../../category/category.entity";
+import { Modifier } from "../../modifier/modifier.entity";
 
 @Injectable()
 export class AliPosService extends AliPosBaseService {
@@ -18,9 +20,9 @@ export class AliPosService extends AliPosBaseService {
         configService: ConfigService,
         private readonly productService: ProductService,
         private readonly categoryService: CategoryService,
+        @InjectRepository(Product) private readonly productRepository: Repository<Product>,
+        @InjectRepository(Modifier) private readonly modifierRepository: Repository<Modifier>,
     ) {
-
-
         super(httpService, configService)
     }
 
@@ -62,10 +64,42 @@ export class AliPosService extends AliPosBaseService {
                 }))
             };
         });
-        
+
         await this.categoryService.upsertMany(categories)
         await this.productService.saveMenu(productsToSave)
     }
 
+    async updateProductOrModifier({ id, restaurantId, countNum, clientId, clientSecret }: {
+        id: string;
+        restaurantId: string;
+        countNum: number;
+        clientId: string;
+        clientSecret: string;
+    }) {
+        const originalId = this.configService.get('ALIPOS_CLIENT_ID');
+        const originalSecret = this.configService.get('ALIPOS_CLIENT_SECRET');
+
+        if (clientId !== originalId || clientSecret !== originalSecret) {
+            throw new UnauthorizedException('Xavfsizlik kalitlari xato!');
+        }
+
+        const isActive = countNum === -1 || countNum > 0;
+
+        const modifier = await this.modifierRepository.findOne({ where: { id } });
+        if (modifier) {
+            modifier.is_active = isActive;
+            await this.modifierRepository.save(modifier);
+            return { status: 'success', type: 'modifier' };
+        }
+
+        const product = await this.productRepository.findOne({ where: { id } });
+        if (product) {
+            product.is_active = isActive;
+            await this.productRepository.save(product);
+            return { status: 'success', type: 'product' };
+        }
+
+        throw new NotFoundException('Mahsulot yoki modifikator topilmadi');
+    }
 
 }

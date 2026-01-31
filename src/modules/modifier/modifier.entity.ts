@@ -18,6 +18,9 @@ export class Modifier {
     @Column({ default: 1 })
     max_quantity: number; // Mijoz nechta tanlay olishi mumkinligi [cite: 90]
 
+    @Column({ default: true })
+    is_active: boolean;
+
     @Column({ default: 0 })
     sort_order: number; // Guruh ichidagi tartibi [cite: 92]
 
