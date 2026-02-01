@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Product } from "./product.entity";
 import { Between, FindOptionsWhere, LessThanOrEqual, MoreThanOrEqual, Repository } from "typeorm";
@@ -11,7 +11,7 @@ import { claculateCoin } from "../../utils/calculate-coin";
 export class ProductService {
     constructor(
         @InjectRepository(Product) private readonly repository: Repository<Product>,
-        private readonly coinSettingsService: CoinSettingsService
+        private readonly coinSettingsService: CoinSettingsService,
     ) { }
 
     async saveMenu(data: Product[]) {
@@ -47,7 +47,7 @@ export class ProductService {
         const products = data.map((item) => {
             return {
                 ...item,
-                coin_price: claculateCoin({ product_price: item.price, coinSettings })
+                ...claculateCoin({ product_price: item.price, coinSettings })
             }
         })
 
@@ -61,7 +61,7 @@ export class ProductService {
     }
 
     async findById(id: string) {
-        return this.repository.findOne({
+        const product = await this.repository.findOne({
             where: {
                 id
             },
@@ -71,5 +71,14 @@ export class ProductService {
                 }
             }
         })
+        if (!product) {
+            throw new NotFoundException('Mahsulot topilmadi!')
+        }
+        const coinSettings = await this.coinSettingsService.findCoinSettings()
+
+        return {
+            ...product,
+            ...claculateCoin({ product_price: product?.price ?? 0, coinSettings })
+        }
     }
 }

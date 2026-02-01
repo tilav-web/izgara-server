@@ -1,12 +1,16 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { Auth } from "../auth/auth.entity";
 import { AuthStatusEnum } from "../auth/enums/status.enum";
 import { AuthRoleEnum } from "../auth/enums/auth-role.enum";
+import { Order } from "../order/schemas/order.entity";
 
 @Entity('users')
 export class User {
     @PrimaryGeneratedColumn()
     id: number
+    
+    @OneToMany(() => Order, (order) => order.user)
+    orders: Order[];
 
     @Column({ type: 'varchar', length: 12 })
     phone: string

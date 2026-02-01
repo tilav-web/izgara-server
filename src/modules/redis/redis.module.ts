@@ -15,7 +15,8 @@ import { CoinSettingsRedisService } from "./coin-settings-redis.service";
             useFactory: (config: ConfigService) => {
                 return new Redis({
                     host: config.get('REDIS_HOST'),
-                    port: config.get('REDIS_PORT')
+                    port: config.get('REDIS_PORT'),
+                    keyPrefix: 'izgara'
                 })
             },
             inject: [ConfigService]

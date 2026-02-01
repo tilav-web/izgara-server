@@ -32,4 +32,7 @@ export class Auth {
     })
     @JoinColumn({ name: 'user_id' })
     user: User;
+
+    @Column({ name: 'user_id' })
+    user_id: number
 }

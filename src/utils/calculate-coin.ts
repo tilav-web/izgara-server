@@ -9,5 +9,5 @@ export const claculateCoin = ({ product_price, coinSettings }: { product_price: 
 
     const coin_price = productPrice / valuePerCoin
 
-    return coin_price
+    return { coin_price }
 }
