@@ -12,16 +12,19 @@ import {
   MoreThanOrEqual,
   Repository,
 } from 'typeorm';
-import { MeasureEnum } from './enums/measure.enum';
 import { FindAllFilterDto } from './dto/find-all-filter.dto';
 import { CoinSettingsService } from '../coinSettings/coin-settings.service';
 import { claculateCoin } from '../../utils/calculate-coin';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { FileService } from '../file/file.service';
+import { FileFolderEnum } from '../file/enums/file-folder.enum';
 
 @Injectable()
 export class ProductService {
   constructor(
     @InjectRepository(Product) private readonly repository: Repository<Product>,
     private readonly coinSettingsService: CoinSettingsService,
+    private readonly fileService: FileService,
   ) {}
 
   async saveMenu(data: Product[]) {
@@ -98,5 +101,36 @@ export class ProductService {
       ...product,
       ...claculateCoin({ product_price: product?.price ?? 0, coinSettings }),
     };
+  }
+
+  async update(
+    id: string,
+    dto: UpdateProductDto & { image?: Express.Multer.File },
+  ) {
+    const product = await this.repository.findOne({ where: { id } });
+    if (!product) throw new NotFoundException('Mahsulot topilmadi!');
+
+    if (dto.image) {
+      if (product.image) {
+        await this.fileService.deleteFile(product.image);
+      }
+
+      product.image = await this.fileService.saveFile({
+        file: dto.image,
+        folder: FileFolderEnum.PRODUCTS,
+      });
+    }
+
+    if (dto.name) product.name = dto.name;
+    if (dto.description) product.description = dto.description;
+    if (dto.vat) product.vat = dto.vat;
+    if (dto.measure_unit) product.measure_unit = dto.measure_unit;
+    if (dto.measure) product.measure = dto.measure;
+    if (dto.sort_order) product.sort_order = dto.sort_order;
+    if (dto.is_active) product.is_active = dto.is_active;
+    if (dto.category_id) product.category_id = dto.category_id;
+
+    const result = await this.repository.save(product);
+    return result;
   }
 }

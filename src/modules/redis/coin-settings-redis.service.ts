@@ -11,7 +11,7 @@ export class CoinSettingsRedisService {
     const key = 'coin_settings_cache';
     const coinSettings = await this.redis.get(key);
     if (!coinSettings) return null;
-    return JSON.parse(coinSettings);
+    return JSON.parse(coinSettings) as CoinSettings;
   }
 
   async setCoinSettings({

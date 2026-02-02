@@ -5,9 +5,9 @@ export const claculateCoin = ({
   coinSettings,
 }: {
   product_price: number;
-  coinSettings: CoinSettings;
+  coinSettings: CoinSettings | null;
 }) => {
-  if (!coinSettings.is_active) return 0;
+  if ((coinSettings && !coinSettings.is_active) || !coinSettings) return 0;
 
   const valuePerCoin = Number(coinSettings.value_per_coin);
   const productPrice = Number(product_price);
