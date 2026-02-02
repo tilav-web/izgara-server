@@ -1,19 +1,18 @@
-import { Controller, Get, Param, Query } from "@nestjs/common";
-import { ProductService } from "./product.service";
-import { FindAllFilterDto } from "./dto/find-all-filter.dto";
+import { Controller, Get, Param, Query } from '@nestjs/common';
+import { ProductService } from './product.service';
+import { FindAllFilterDto } from './dto/find-all-filter.dto';
 
 @Controller('products')
 export class ProductController {
-    constructor(private readonly productService: ProductService) { }
+  constructor(private readonly productService: ProductService) {}
 
-    @Get()
-    async findAll(@Query() dto: FindAllFilterDto) {
-        return this.productService.findAll(dto)
-    }
+  @Get()
+  async findAll(@Query() dto: FindAllFilterDto) {
+    return this.productService.findAll(dto);
+  }
 
-    @Get('/:id')
-    async findById(@Param('id') id: string) {
-        return this.productService.findById(id)
-    }
-
+  @Get('/:id')
+  async findById(@Param('id') id: string) {
+    return this.productService.findById(id);
+  }
 }

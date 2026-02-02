@@ -2,7 +2,6 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsString } from 'class-validator';
 
 export class UpdateCategoryDto {
-
   @ApiPropertyOptional({
     example: 'Ichimliklar',
     description: 'Kategoriya nomi',
@@ -21,7 +20,7 @@ export class UpdateCategoryDto {
 
   @ApiPropertyOptional({
     type: 'string',
-    format: 'binary',  // 🔑 Swagger-da file ko‘rinishi uchun
+    format: 'binary', // 🔑 Swagger-da file ko‘rinishi uchun
     description: 'Kategoriya rasmi',
   })
   @IsOptional()

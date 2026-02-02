@@ -17,7 +17,10 @@ export class FindAllFilterDto {
   @Min(1)
   limit?: number;
 
-  @ApiPropertyOptional({ description: 'Kategoriya ID bo‘yicha filter', example: 'bbe77443-d36a-4dc4-a8f4-47a9b57e51a9' })
+  @ApiPropertyOptional({
+    description: 'Kategoriya ID bo‘yicha filter',
+    example: 'bbe77443-d36a-4dc4-a8f4-47a9b57e51a9',
+  })
   @IsOptional()
   @IsString()
   category_id?: string;

@@ -1,33 +1,43 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { OrderItemModifier } from "./order-item-modifier.entity";
-import { Order } from "./order.entity";
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { OrderItemModifier } from './order-item-modifier.entity';
+import { Order } from './order.entity';
 
 @Entity('order_items')
 export class OrderItem {
-    @PrimaryGeneratedColumn()
-    id: number;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @ManyToOne(() => Order, (order) => order.items)
-    order: Order;
+  @ManyToOne(() => Order, (order) => order.items)
+  order: Order;
 
-    @Column()
-    product_id: string; // AliPos mahsulot ID'si
+  @Column()
+  product_id: string; // AliPos mahsulot ID'si
 
-    @Column()
-    product_name: string; // Mahsulot nomi (narx yoki nom o'zgarsa tarixda qolishi uchun)
+  @Column()
+  product_name: string; // Mahsulot nomi (narx yoki nom o'zgarsa tarixda qolishi uchun)
 
-    @Column()
-    quantity: number;
+  @Column()
+  quantity: number;
 
-    @Column({ type: 'decimal' })
-    price: number;
+  @Column({ type: 'decimal' })
+  price: number;
 
-    @OneToMany(() => OrderItemModifier, (mod) => mod.order_item, { cascade: true })
-    selected_modifiers: OrderItemModifier[];
+  @OneToMany(() => OrderItemModifier, (mod) => mod.order_item, {
+    cascade: true,
+  })
+  selected_modifiers: OrderItemModifier[];
 
-    @UpdateDateColumn()
-    updated_at: Date;
+  @UpdateDateColumn()
+  updated_at: Date;
 
-    @CreateDateColumn()
-    created_at: Date;
+  @CreateDateColumn()
+  created_at: Date;
 }

@@ -1,48 +1,70 @@
-import { Injectable } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { CoinSettings } from "./coin-settings.entity";
-import { Repository } from "typeorm";
-import { CoinSettingsRedisService } from "../redis/coin-settings-redis.service";
-import { UpdateCoinSettingsDto } from "./dto/update-coin-settings.dto";
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { CoinSettings } from './coin-settings.entity';
+import { Repository } from 'typeorm';
+import { CoinSettingsRedisService } from '../redis/coin-settings-redis.service';
+import { UpdateCoinSettingsDto } from './dto/update-coin-settings.dto';
 
 @Injectable()
 export class CoinSettingsService {
-    constructor(@InjectRepository(CoinSettings) private readonly repository: Repository<CoinSettings>, private readonly coinSettingRedisService: CoinSettingsRedisService) { }
+  constructor(
+    @InjectRepository(CoinSettings)
+    private readonly repository: Repository<CoinSettings>,
+    private readonly coinSettingRedisService: CoinSettingsRedisService,
+  ) {}
 
-    async findCoinSettings() {
-        const coinSettingsCache = await this.coinSettingRedisService.getCoinSettings()
-        if (coinSettingsCache) return coinSettingsCache
+  async findCoinSettings() {
+    const coinSettingsCache =
+      await this.coinSettingRedisService.getCoinSettings();
+    if (coinSettingsCache) return coinSettingsCache;
 
-        const coinSettings = await this.repository.findOne({
-            where: {},
-            order: {
-                created_at: 'DESC',
-            },
-        });
-        if (coinSettings) {
-            await this.coinSettingRedisService.setCoinSettings({ coinSettings })
-        }
-        return coinSettings
+    const coinSettings = await this.repository.findOne({
+      where: {},
+      order: {
+        created_at: 'DESC',
+      },
+    });
+    if (coinSettings) {
+      await this.coinSettingRedisService.setCoinSettings({ coinSettings });
+    }
+    return coinSettings;
+  }
+
+  async createCoinSettings({
+    value_per_coin = 100,
+    spend_amount_for_one_coin = 10000,
+    min_spend_limit = 10000,
+    max_coins_per_order = 1000,
+  }: {
+    value_per_coin?: number;
+    spend_amount_for_one_coin?: number;
+    min_spend_limit?: number;
+    max_coins_per_order?: number;
+  }) {
+    return this.repository.save({
+      value_per_coin,
+      spend_amount_for_one_coin,
+      min_spend_limit,
+      max_coins_per_order,
+    });
+  }
+
+  async updateCoinSettings(body: UpdateCoinSettingsDto) {
+    let settings = await this.repository.findOne({
+      where: {},
+      order: { created_at: 'DESC' },
+    });
+
+    if (!settings) {
+      settings = this.repository.create(body);
+    } else {
+      this.repository.merge(settings, body);
     }
 
-    async createCoinSettings({ value_per_coin = 100, spend_amount_for_one_coin = 10000, min_spend_limit = 10000, max_coins_per_order = 1000 }: { value_per_coin?: number; spend_amount_for_one_coin?: number; min_spend_limit?: number; max_coins_per_order?: number }) {
-        return this.repository.save({ value_per_coin, spend_amount_for_one_coin, min_spend_limit, max_coins_per_order })
-    }
-
-    async updateCoinSettings(body: UpdateCoinSettingsDto) {
-        let settings = await this.repository.findOne({
-            where: {},
-            order: { created_at: 'DESC' }
-        });
-
-        if (!settings) {
-            settings = this.repository.create(body);
-        } else {
-            this.repository.merge(settings, body);
-        }
-
-        const updatedSettings = await this.repository.save(settings);
-        await this.coinSettingRedisService.setCoinSettings({ coinSettings: updatedSettings });
-        return updatedSettings;
-    }
+    const updatedSettings = await this.repository.save(settings);
+    await this.coinSettingRedisService.setCoinSettings({
+      coinSettings: updatedSettings,
+    });
+    return updatedSettings;
+  }
 }

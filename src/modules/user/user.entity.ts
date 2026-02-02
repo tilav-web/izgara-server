@@ -1,42 +1,54 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { Auth } from "../auth/auth.entity";
-import { AuthStatusEnum } from "../auth/enums/status.enum";
-import { AuthRoleEnum } from "../auth/enums/auth-role.enum";
-import { Order } from "../order/schemas/order.entity";
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { Auth } from '../auth/auth.entity';
+import { AuthStatusEnum } from '../auth/enums/status.enum';
+import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
+import { Order } from '../order/schemas/order.entity';
 
 @Entity('users')
 export class User {
-    @PrimaryGeneratedColumn()
-    id: number
-    
-    @OneToMany(() => Order, (order) => order.user)
-    orders: Order[];
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column({ type: 'varchar', length: 12 })
-    phone: string
+  @OneToMany(() => Order, (order) => order.user)
+  orders: Order[];
 
-    @Column({ type: 'varchar', length: 50, nullable: true })
-    first_name: string
+  @Column({ type: 'varchar', length: 12 })
+  phone: string;
 
-    @Column({ type: 'varchar', length: 50, nullable: true })
-    last_name: string
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  first_name: string;
 
-    @Column({ type: 'enum', enum: AuthStatusEnum, default: AuthStatusEnum.ACTIVE })
-    status: AuthStatusEnum
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  last_name: string;
 
-    @Column({ type: 'enum', enum: AuthRoleEnum, default: AuthRoleEnum.USER })
-    role: AuthRoleEnum
+  @Column({
+    type: 'enum',
+    enum: AuthStatusEnum,
+    default: AuthStatusEnum.ACTIVE,
+  })
+  status: AuthStatusEnum;
 
-    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
-    coin_balance: number
+  @Column({ type: 'enum', enum: AuthRoleEnum, default: AuthRoleEnum.USER })
+  role: AuthRoleEnum;
 
-    @CreateDateColumn()
-    created_at: Date;
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  coin_balance: number;
 
-    @UpdateDateColumn()
-    updated_at: Date;
+  @CreateDateColumn()
+  created_at: Date;
 
-    // **********************
-    @OneToOne(() => Auth, (auth) => auth.user)
-    auth: Auth;
+  @UpdateDateColumn()
+  updated_at: Date;
+
+  // **********************
+  @OneToOne(() => Auth, (auth) => auth.user)
+  auth: Auth;
 }

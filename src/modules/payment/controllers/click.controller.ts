@@ -1,6 +1,6 @@
-import { Controller } from "@nestjs/common";
+import { Controller } from '@nestjs/common';
 
 @Controller('click')
 export class ClickController {
-    constructor() { }
+  constructor() {}
 }

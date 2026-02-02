@@ -1,60 +1,62 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { join } from "path";
-import { FileFolderEnum } from "./enums/file-folder.enum";
-import { existsSync, mkdirSync } from "fs";
-import { writeFile, unlink } from "fs/promises";
+import { Injectable, Logger } from '@nestjs/common';
+import { join } from 'path';
+import { FileFolderEnum } from './enums/file-folder.enum';
+import { existsSync, mkdirSync } from 'fs';
+import { writeFile, unlink } from 'fs/promises';
 
 @Injectable()
 export class FileService {
-    private readonly serverUrl = process.env.SERVER_URL
-    private readonly uploadsPath = join(process.cwd(), 'uploads')
-    private readonly logger = new Logger(FileService.name)
+  private readonly serverUrl = process.env.SERVER_URL;
+  private readonly uploadsPath = join(process.cwd(), 'uploads');
+  private readonly logger = new Logger(FileService.name);
 
-    constructor() {
-        if (!existsSync(this.uploadsPath)) {
-            mkdirSync(this.uploadsPath, { recursive: true })
-        }
+  constructor() {
+    if (!existsSync(this.uploadsPath)) {
+      mkdirSync(this.uploadsPath, { recursive: true });
+    }
+  }
+
+  async saveFile({
+    file,
+    folder,
+  }: {
+    file: Express.Multer.File;
+    folder: FileFolderEnum;
+  }): Promise<string> {
+    if (!file) throw new Error('File not provided');
+
+    const folderPath = join(this.uploadsPath, folder);
+    if (!existsSync(folderPath)) {
+      mkdirSync(folderPath, { recursive: true });
     }
 
-    async saveFile({
-        file,
-        folder
-    }: { file: Express.Multer.File, folder: FileFolderEnum }): Promise<string> {
-        if (!file) throw new Error('File not provided')
+    const timestamp = Date.now();
+    const random = Math.round(Math.random() * 1e9);
+    const extension = file.originalname.split('.').pop();
+    const filename = `${timestamp}-${random}.${extension}`;
 
-        const folderPath = join(this.uploadsPath, folder)
-        if (!existsSync(folderPath)) {
-            mkdirSync(folderPath, { recursive: true })
-        }
+    const filePath = join(folderPath, filename);
+    await writeFile(filePath, file.buffer);
 
-        const timestamp = Date.now();
-        const random = Math.round(Math.random() * 1e9);
-        const extension = file.originalname.split('.').pop();
-        const filename = `${timestamp}-${random}.${extension}`;
+    return `${this.serverUrl}/uploads/${folder}/${filename}`;
+  }
 
-        const filePath = join(folderPath, filename);
-        await writeFile(filePath, file.buffer)
+  async deleteFile(fileUrl: string) {
+    try {
+      const filePath = fileUrl.replace(this.serverUrl + '/', '');
+      const absolutePath = join(process.cwd(), filePath);
 
-        return `${this.serverUrl}/uploads/${folder}/${filename}`
+      if (existsSync(absolutePath)) {
+        await unlink(absolutePath);
+        this.logger.log(`File deleted: ${absolutePath}`);
+        return true;
+      } else {
+        this.logger.warn(`File not found: ${absolutePath}`);
+        return false;
+      }
+    } catch (error) {
+      this.logger.error(`Error deleting file: ${error}`);
+      return false;
     }
-
-
-    async deleteFile(fileUrl: string) {
-        try {
-            const filePath = fileUrl.replace(this.serverUrl + '/', '');
-            const absolutePath = join(process.cwd(), filePath);
-
-            if (existsSync(absolutePath)) {
-                await unlink(absolutePath);
-                this.logger.log(`File deleted: ${absolutePath}`);
-                return true;
-            } else {
-                this.logger.warn(`File not found: ${absolutePath}`);
-                return false;
-            }
-        } catch (error) {
-            this.logger.error(`Error deleting file: ${error}`);
-            return false;
-        }
-    }
+  }
 }

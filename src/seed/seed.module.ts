@@ -10,4 +10,4 @@ import { CoinSettings } from '../modules/coinSettings/coin-settings.entity';
   providers: [SeedService],
   exports: [SeedService],
 })
-export class SeedModule { }
+export class SeedModule {}

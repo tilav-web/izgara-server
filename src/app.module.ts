@@ -14,7 +14,7 @@ import { FileModule } from './modules/file/file.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true
+      isGlobal: true,
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -28,11 +28,11 @@ import { FileModule } from './modules/file/file.module';
           password: config.get('DB_PASSWORD'),
           database: config.get('DB_NAME'),
           autoLoadEntities: true,
-          entities: [__dirname + '/**/*.entity{.ts, .js}'],
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
           synchronize: process.env.NODE_ENV === 'development',
           logging: process.env.NODE_ENV === 'development',
-        }
-      }
+        };
+      },
     }),
     RedisModule,
     SeedModule,
@@ -42,7 +42,7 @@ import { FileModule } from './modules/file/file.module';
     ProductModule,
     ModifierModule,
     ModifierGroupModule,
-    FileModule
+    FileModule,
   ],
 })
-export class AppModule { }
+export class AppModule {}

@@ -1,84 +1,102 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Product } from "./product.entity";
-import { Between, FindOptionsWhere, LessThanOrEqual, MoreThanOrEqual, Repository } from "typeorm";
-import { MeasureEnum } from "./enums/measure.enum";
-import { FindAllFilterDto } from "./dto/find-all-filter.dto";
-import { CoinSettingsService } from "../coinSettings/coin-settings.service";
-import { claculateCoin } from "../../utils/calculate-coin";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Product } from './product.entity';
+import {
+  Between,
+  FindOptionsWhere,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  Repository,
+} from 'typeorm';
+import { MeasureEnum } from './enums/measure.enum';
+import { FindAllFilterDto } from './dto/find-all-filter.dto';
+import { CoinSettingsService } from '../coinSettings/coin-settings.service';
+import { claculateCoin } from '../../utils/calculate-coin';
 
 @Injectable()
 export class ProductService {
-    constructor(
-        @InjectRepository(Product) private readonly repository: Repository<Product>,
-        private readonly coinSettingsService: CoinSettingsService,
-    ) { }
+  constructor(
+    @InjectRepository(Product) private readonly repository: Repository<Product>,
+    private readonly coinSettingsService: CoinSettingsService,
+  ) {}
 
-    async saveMenu(data: Product[]) {
-        return this.repository.save(data);
+  async saveMenu(data: Product[]) {
+    return this.repository.save(data);
+  }
+
+  async findAll({
+    page = 1,
+    limit = 10,
+    category_id,
+    price_min,
+    price_max,
+  }: FindAllFilterDto) {
+    const filter: FindOptionsWhere<Product> = {};
+    if (category_id) filter.category_id = category_id;
+
+    const coinSettings = await this.coinSettingsService.findCoinSettings();
+
+    if (price_min && price_max) {
+      if (price_min > price_max) {
+        throw new BadRequestException(
+          "Narx bo'yicha qidirish uchun min va max mantiqan to'g'ri bo'lishi kerak!",
+        );
+      }
+      filter.price = Between(price_min, price_max);
+    } else if (price_min) {
+      filter.price = MoreThanOrEqual(price_min);
+    } else if (price_max) {
+      filter.price = LessThanOrEqual(price_max);
     }
 
-    async findAll({ page = 1, limit = 10, category_id, price_min, price_max }: FindAllFilterDto) {
-        const filter: FindOptionsWhere<Product> = {}
-        if (category_id) filter.category_id = category_id
+    const skip = (page - 1) * limit;
 
-        const coinSettings = await this.coinSettingsService.findCoinSettings()
+    const [data, total] = await this.repository.findAndCount({
+      where: filter,
+      take: limit,
+      skip,
+      order: { created_at: 'DESC' },
+    });
 
-        if (price_min && price_max) {
-            if (price_min > price_max) {
-                throw new BadRequestException("Narx bo'yicha qidirish uchun min va max mantiqan to'g'ri bo'lishi kerak!")
-            }
-            filter.price = Between(price_min, price_max)
-        } else if (price_min) {
-            filter.price = MoreThanOrEqual(price_min);
-        } else if (price_max) {
-            filter.price = LessThanOrEqual(price_max);
-        }
+    const products = data.map((item) => {
+      return {
+        ...item,
+        ...claculateCoin({ product_price: item.price, coinSettings }),
+      };
+    });
 
-        const skip = (page - 1) * limit;
+    return {
+      products,
+      total,
+      page,
+      limit,
+      total_pages: Math.ceil(total / limit),
+    };
+  }
 
-        const [data, total] = await this.repository.findAndCount({
-            where: filter,
-            take: limit,
-            skip,
-            order: { created_at: "DESC" }
-        })
-
-        const products = data.map((item) => {
-            return {
-                ...item,
-                ...claculateCoin({ product_price: item.price, coinSettings })
-            }
-        })
-
-        return {
-            products,
-            total,
-            page,
-            limit,
-            total_pages: Math.ceil(total / limit)
-        }
+  async findById(id: string) {
+    const product = await this.repository.findOne({
+      where: {
+        id,
+      },
+      relations: {
+        modifier_groups: {
+          modifiers: true,
+        },
+      },
+    });
+    if (!product) {
+      throw new NotFoundException('Mahsulot topilmadi!');
     }
+    const coinSettings = await this.coinSettingsService.findCoinSettings();
 
-    async findById(id: string) {
-        const product = await this.repository.findOne({
-            where: {
-                id
-            },
-            relations: {
-                modifier_groups: {
-                    modifiers: true
-                }
-            }
-        })
-        if (!product) {
-            throw new NotFoundException('Mahsulot topilmadi!')
-        }
-        const coinSettings = await this.coinSettingsService.findCoinSettings()
-
-        return {
-            ...product,
-            ...claculateCoin({ product_price: product?.price ?? 0, coinSettings })
-        }
-    }
+    return {
+      ...product,
+      ...claculateCoin({ product_price: product?.price ?? 0, coinSettings }),
+    };
+  }
 }

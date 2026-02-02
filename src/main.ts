@@ -16,11 +16,17 @@ async function bootstrap() {
   await seedService.createDeafultCoinService();
 
   //swagger config
-  const config = new DocumentBuilder().setTitle("Izgara Api Docs").addBearerAuth({
-    type: 'http',
-    scheme: 'bearer',
-    bearerFormat: 'JWT'
-  }, 'access_token').build()
+  const config = new DocumentBuilder()
+    .setTitle('Izgara Api Docs')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+      },
+      'access_token',
+    )
+    .build();
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('swagger', app, document);
@@ -28,7 +34,10 @@ async function bootstrap() {
   const allowedOrigins = process.env.CORS_ORIGINS?.split(',') ?? [];
 
   app.enableCors({
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
@@ -37,7 +46,7 @@ async function bootstrap() {
         callback(new Error(`Not allowed by CORS ${origin}`));
       }
     },
-    credentials: true
+    credentials: true,
   });
 
   app.use(cookieParser());
