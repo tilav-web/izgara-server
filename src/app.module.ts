@@ -10,6 +10,7 @@ import { ModifierModule } from './modules/modifier/modifier.module';
 import { ModifierGroupModule } from './modules/modifierGroup/modifier-group.module';
 import { AliPosModule } from './modules/alipos/alipos.module';
 import { FileModule } from './modules/file/file.module';
+import { LocationModule } from './modules/location/location.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { FileModule } from './modules/file/file.module';
     ModifierModule,
     ModifierGroupModule,
     FileModule,
+    LocationModule,
   ],
 })
 export class AppModule {}
