@@ -29,6 +29,9 @@ export class User {
   @Column({ type: 'varchar', length: 50, nullable: true })
   last_name: string;
 
+  @Column({ type: 'text', nullable: true })
+  image: string;
+
   @Column({
     type: 'enum',
     enum: AuthStatusEnum,

@@ -17,7 +17,7 @@ export const generateClickUrl = ({
   const params = new URLSearchParams({
     service_id: service_id,
     merchant_id: merchant_id,
-    amount: amount.toString(),
+    amount: Number(amount).toFixed(2),
     transaction_param: order_id,
     return_url: return_url,
   });

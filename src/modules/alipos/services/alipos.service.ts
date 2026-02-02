@@ -15,8 +15,40 @@ import { Repository } from 'typeorm';
 import { firstValueFrom } from 'rxjs';
 import { MeasureEnum } from '../../product/enums/measure.enum';
 import { CategoryService } from '../../category/category.service';
-import { Category } from '../../category/category.entity';
 import { Modifier } from '../../modifier/modifier.entity';
+
+interface AlipostApiResponse {
+  categories: {
+    id: string;
+    name: string;
+    sortOrder: number;
+  }[];
+  items: {
+    id: string;
+    categoryId: string;
+    name: string;
+    description?: string;
+    price: number;
+    vat: number;
+    measure: number;
+    measureUnit: 'шт' | 'г' | 'мл'; // Alipost API dagi qiymatlar
+    sortOrder: number;
+    modifierGroups?: {
+      id: string;
+      name: string;
+      sortOrder: number;
+      minSelectedAmount: number;
+      maxSelectedAmount: number;
+      modifiers?: {
+        id: string;
+        name: string;
+        price: number;
+        vat: number;
+        sortOrder: number;
+      }[];
+    }[];
+  }[];
+}
 
 @Injectable()
 export class AliPosService extends AliPosBaseService {
@@ -43,18 +75,17 @@ export class AliPosService extends AliPosBaseService {
         ALIPOST_API_ENDPOINTS.CATEGORY.findAll(this.restaurantId),
       ),
     );
+    const data = response.data as AlipostApiResponse;
 
-    const categories = response.data.categories.map(
-      (category: { id: string; name: string; sortOrder: number }) => {
-        return {
-          id: category.id,
-          name: category.name,
-          sort_order: category.sortOrder,
-        };
-      },
-    );
+    // 1. Kategoriyalarni tayyorlash
+    const categories = data.categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      sort_order: category.sortOrder,
+    }));
 
-    const productsToSave = response.data.items.map((item) => {
+    // 2. Mahsulotlar va ularning ichki tuzilmasini tayyorlash
+    const productsToSave = data.items.map((item) => {
       return {
         id: item.id,
         category_id: item.categoryId,
@@ -70,36 +101,48 @@ export class AliPosService extends AliPosBaseService {
               ? MeasureEnum.KG
               : MeasureEnum.PCS,
         sort_order: item.sortOrder,
+        is_active: true, // Yangilangan menyu mahsulotlari sukut bo'yicha aktiv
 
+        // Har bir guruhni map qilish
         modifier_groups: (item.modifierGroups || []).map((group) => ({
           id: group.id,
           name: group.name,
           sort_order: group.sortOrder,
           min_selected_amount: group.minSelectedAmount,
           max_selected_amount: group.maxSelectedAmount,
+          modifiers: (group.modifiers || []).map((modifier) => ({
+            id: modifier.id,
+            name: modifier.name,
+            price: modifier.price,
+            vat: modifier.vat,
+            sort_order: modifier.sortOrder,
+            max_quantity: 1,
+            is_active: true,
+          })),
         })),
       };
     });
 
+    // 3. Ma'lumotlarni bazaga yozish
     await this.categoryService.upsertMany(categories);
     await this.productService.saveMenu(productsToSave);
   }
 
   async updateProductOrModifier({
     id,
-    restaurantId,
     countNum,
     clientId,
     clientSecret,
   }: {
     id: string;
-    restaurantId: string;
     countNum: number;
     clientId: string;
     clientSecret: string;
   }) {
-    const originalId = this.configService.get('ALIPOS_CLIENT_ID');
-    const originalSecret = this.configService.get('ALIPOS_CLIENT_SECRET');
+    const originalId = this.configService.get('ALIPOS_CLIENT_ID') as string;
+    const originalSecret = this.configService.get(
+      'ALIPOS_CLIENT_SECRET',
+    ) as string;
 
     if (clientId !== originalId || clientSecret !== originalSecret) {
       throw new UnauthorizedException('Xavfsizlik kalitlari xato!');

@@ -20,7 +20,6 @@ export class PaymentTransaction {
   @JoinColumn({ name: 'order_id' })
   order: Order;
 
-  // 2. ID-ni o'ziga ham kirish imkoniyati (Qulaylik uchun)
   @Column({ name: 'order_id' })
   order_id: string;
 

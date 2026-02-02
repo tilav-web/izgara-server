@@ -1,14 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './user.entity';
 import { Repository } from 'typeorm';
 import { UserRedisService } from '../redis/user-redis.service';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { FileService } from '../file/file.service';
+import { FileFolderEnum } from '../file/enums/file-folder.enum';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User) private readonly repository: Repository<User>,
     private readonly userRedisService: UserRedisService,
+    private readonly fileService: FileService,
   ) {}
 
   async findById(id: number) {
@@ -35,6 +44,42 @@ export class UserService {
     last_name?: string;
   }) {
     const user = this.repository.create({ phone, first_name, last_name });
+    const result = await this.repository.save(user);
+    return result;
+  }
+
+  async update(
+    auth_id: number,
+    dto: UpdateUserDto & { image?: Express.Multer.File },
+  ) {
+    if (!auth_id) throw new UnauthorizedException('Tizimga qayta kiring!');
+
+    const hasUpdateField =
+      dto.image ||
+      Object.values(dto).some((value) => value !== undefined && value !== null);
+
+    if (!hasUpdateField) {
+      throw new BadRequestException('Hech qanday maydon yuborilmadi!');
+    }
+
+    const user = await this.findByAuthId(auth_id);
+
+    if (!user) throw new NotFoundException('Foydalanuvchi topilmadi!');
+
+    if (dto.image) {
+      if (user.image) {
+        await this.fileService.deleteFile(user.image);
+      }
+
+      user.image = await this.fileService.saveFile({
+        file: dto.image,
+        folder: FileFolderEnum.PROFILES,
+      });
+    }
+
+    if (dto.first_name) user.first_name = dto.first_name;
+    if (dto.last_name) user.last_name = dto.last_name;
+
     const result = await this.repository.save(user);
     return result;
   }

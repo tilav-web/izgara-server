@@ -44,7 +44,6 @@ export class AliPosController {
 
     return this.aliPosService.updateProductOrModifier({
       id,
-      restaurantId,
       countNum,
       clientId,
       clientSecret,

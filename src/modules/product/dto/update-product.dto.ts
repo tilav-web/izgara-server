@@ -68,7 +68,7 @@ export class UpdateProductDto {
 
   @ApiPropertyOptional({
     type: 'string',
-    format: 'binary', // 🔑 Swagger-da file ko‘rinishi uchun
+    format: 'binary',
     description: 'Mahsulot rasmi',
   })
   @IsOptional()

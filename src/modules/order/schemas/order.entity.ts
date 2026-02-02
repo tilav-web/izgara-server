@@ -14,6 +14,8 @@ import { OrderPaymentMethodEnum } from '../enums/order-payment-status.enum';
 import { User } from '../../user/user.entity';
 import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
 import { PaymentTransaction } from '../../payment/payment-transaction.entity';
+import { OrderTypeEnum } from '../enums/order-type.enum';
+import { Location } from '../../location/location.entity';
 
 @Entity('orders')
 export class Order {
@@ -42,8 +44,18 @@ export class Order {
   @Column({ type: 'decimal', default: 0 })
   earned_coins: number; // Ushbu buyurtmadan yig'ilgan coinlar
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  total_price: number; // Buyurtmaning umumiy summasi (coinlar ayirilmasdan oldingi yoki keyingi)
+
   @Column({ type: 'enum', enum: OrderStatusEnum, default: OrderStatusEnum.NEW })
   status: OrderStatusEnum; // NEW, IN_PROGRESS, READY, DELIVERED, CANCELLED
+
+  @Column({
+    type: 'enum',
+    enum: OrderTypeEnum,
+    default: OrderTypeEnum.DELIVERY,
+  })
+  order_type: OrderTypeEnum;
 
   @Column({
     type: 'enum',
@@ -67,6 +79,20 @@ export class Order {
 
   @Column()
   customer_phone: string;
+
+  @ManyToOne(() => Location, { nullable: true })
+  @JoinColumn({ name: 'location_id' })
+  location: Location;
+
+  @Column({ name: 'location_id', nullable: true })
+  location_id: string;
+
+  // Koordinatalarni order ichida ham saqlash (snapshot)
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  lat: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  lng: number;
 
   @UpdateDateColumn()
   updated_at: Date;

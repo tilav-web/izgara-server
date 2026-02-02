@@ -1,7 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import Redis from 'ioredis';
 import { CACHE_TTL } from '../../utils/constants';
-import { Auth } from '../auth/auth.entity';
 import { User } from '../user/user.entity';
 
 @Injectable()
@@ -25,6 +24,6 @@ export class UserRedisService {
     const key = `user:auth_id:${auth_id}`;
     const user = await this.redis.get(key);
     if (!user) return null;
-    return JSON.parse(user);
+    return JSON.parse(user) as User;
   }
 }

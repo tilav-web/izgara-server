@@ -37,8 +37,6 @@ export class CategoryController {
     @Body() { name, sort_order }: UpdateCategoryDto,
     @UploadedFile() image?: Express.Multer.File,
   ) {
-    console.log(id);
-
     return this.categoryService.updateCategory({ id, name, sort_order, image });
   }
 }

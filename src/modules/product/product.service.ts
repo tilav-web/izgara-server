@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from './product.entity';
 import {
   Between,
+  DeepPartial,
   FindOptionsWhere,
   LessThanOrEqual,
   MoreThanOrEqual,
@@ -27,8 +28,8 @@ export class ProductService {
     private readonly fileService: FileService,
   ) {}
 
-  async saveMenu(data: Product[]) {
-    return this.repository.save(data);
+  async saveMenu(products: DeepPartial<Product>[]) {
+    return await this.repository.save(products);
   }
 
   async findAll({
@@ -107,6 +108,19 @@ export class ProductService {
     id: string,
     dto: UpdateProductDto & { image?: Express.Multer.File },
   ) {
+    if (!id)
+      throw new BadRequestException(
+        'Mahsulot id sini yuborish majburiy uni params da yuboring!',
+      );
+
+    const hasUpdateField =
+      dto.image ||
+      Object.values(dto).some((value) => value !== undefined && value !== null);
+
+    if (!hasUpdateField) {
+      throw new BadRequestException('Hech qanday maydon yuborilmadi!');
+    }
+
     const product = await this.repository.findOne({ where: { id } });
     if (!product) throw new NotFoundException('Mahsulot topilmadi!');
 
