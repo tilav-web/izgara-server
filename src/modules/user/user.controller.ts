@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Patch,
+  Query,
   Req,
   UploadedFile,
   UseGuards,
@@ -14,10 +15,22 @@ import { type Request } from 'express';
 import { ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { AuthRoleGuard } from '../auth/guard/role.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
+import { UsersFilterDto } from './dto/users-filter.dto';
 
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
+
+  @Get('/')
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
+  @Roles(AuthRoleEnum.SUPERADMIN)
+  @ApiBearerAuth('access_token')
+  async findAll(@Query() query: UsersFilterDto) {
+    return this.userService.findAll(query);
+  }
 
   @Get('/find-me')
   @UseGuards(AuthGuard('jwt'))

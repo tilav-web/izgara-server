@@ -1,0 +1,28 @@
+meta {
+  name: update by id
+  type: http
+  seq: 3
+}
+
+patch {
+  url: http://localhost:3000/products/update/cdc9c819-af4a-492d-9bda-d732a7dcc691
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  image: @file(/home/tilav_web/Pictures/images.jpeg)
+  ~name: 
+  ~description: 
+  ~vat: 
+  ~measure_unit: 
+  ~measure: 
+  ~sort_order: 
+  ~is_active: 
+  ~category_id: 
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

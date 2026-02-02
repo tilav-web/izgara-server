@@ -16,6 +16,7 @@ import { firstValueFrom } from 'rxjs';
 import { MeasureEnum } from '../../product/enums/measure.enum';
 import { CategoryService } from '../../category/category.service';
 import { Modifier } from '../../modifier/modifier.entity';
+import { type AxiosError } from 'axios';
 
 interface AlipostApiResponse {
   categories: {
@@ -123,9 +124,14 @@ export class AliPosService extends AliPosBaseService {
       };
     });
 
-    // 3. Ma'lumotlarni bazaga yozish
-    await this.categoryService.upsertMany(categories);
-    await this.productService.saveMenu(productsToSave);
+    try {
+      // 3. Ma'lumotlarni bazaga yozish
+      await this.categoryService.upsertMany(categories);
+      await this.productService.saveMenu(productsToSave);
+    } catch (error) {
+      throw new Error((error as AxiosError).message);
+    }
+    return { message: 'Barcha malumotlar bazaga yozildi!' };
   }
 
   async updateProductOrModifier({

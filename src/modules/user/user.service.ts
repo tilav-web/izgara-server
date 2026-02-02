@@ -11,6 +11,7 @@ import { UserRedisService } from '../redis/user-redis.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { FileService } from '../file/file.service';
 import { FileFolderEnum } from '../file/enums/file-folder.enum';
+import { UsersFilterDto } from './dto/users-filter.dto';
 
 @Injectable()
 export class UserService {
@@ -19,6 +20,52 @@ export class UserService {
     private readonly userRedisService: UserRedisService,
     private readonly fileService: FileService,
   ) {}
+
+  async findAll({
+    search,
+    status,
+    role,
+    coin_balance,
+    page = 1,
+    limit = 10,
+  }: UsersFilterDto) {
+    const qb = this.repository.createQueryBuilder('user');
+
+    if (role) {
+      qb.andWhere('user.role = :role', { role: role });
+    }
+
+    if (status) {
+      qb.andWhere('user.status = :status', { status: status });
+    }
+
+    if (coin_balance === true) {
+      qb.orderBy('user.coin_balance', 'DESC');
+    } else if (coin_balance === false) {
+      qb.orderBy('user.coin_balance', 'ASC');
+    }
+
+    if (search) {
+      qb.andWhere(
+        `(user.phone ILIKE :search OR user.first_name ILIKE :search OR user.last_name ILIKE :search)`,
+        {
+          search: `%${search}%`,
+        },
+      );
+    }
+
+    qb.skip(page - 1).take(limit);
+
+    const [users, total] = await qb.getManyAndCount();
+
+    return {
+      users,
+      total,
+      page,
+      limit,
+      total_pages: Math.ceil(total / limit),
+    };
+  }
 
   async findById(id: number) {
     return this.repository.findOne({ where: { id } });

@@ -26,7 +26,7 @@ export class CategoryController {
     return this.categoryService.findAll();
   }
 
-  @Patch('/:id')
+  @Patch('/update/:id')
   @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
   @Roles(AuthRoleEnum.SUPERADMIN)
   @ApiConsumes('multipart/form-data')

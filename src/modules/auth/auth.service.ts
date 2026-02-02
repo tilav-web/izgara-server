@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Auth } from './auth.entity';
@@ -45,7 +44,7 @@ export class AuthService {
       return null;
     }
 
-    this.authRedisService.setAuthDetails({ auth });
+    await this.authRedisService.setAuthDetails({ auth });
     return auth;
   }
 
@@ -78,7 +77,7 @@ export class AuthService {
       return null;
     }
 
-    this.authRedisService.setAuthDetails({ auth });
+    await this.authRedisService.setAuthDetails({ auth });
     return auth;
   }
 

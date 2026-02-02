@@ -25,7 +25,7 @@ export class AuthController {
     const { phone, password } = body;
     const result = await this.authService.auth({ phone, password });
 
-    const origin = req.headers['origin'] || '';
+    const origin = (req.headers['origin'] as string) || '';
 
     const allowedOrigins =
       process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()) ?? [];
@@ -70,7 +70,7 @@ export class AuthController {
   ) {
     const { phone, code } = body;
     const result = await this.authService.verifyOtp({ phone, code });
-    const origin = req.headers['origin'] ?? 'Mavjut emas';
+    const origin = (req.headers['origin'] as string) ?? 'Mavjut emas';
     const allowedOrigins =
       process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()) ?? [];
 
@@ -103,7 +103,7 @@ export class AuthController {
     @Req() req: Request & { cookies: { refresh_token?: string } },
     @Body() body: RefreshDto,
   ) {
-    const origin = req.headers['origin'] ?? 'Mavjut emas';
+    const origin = (req.headers['origin'] as string) ?? 'Mavjut emas';
     const allowedOrigins =
       process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()) ?? [];
 
@@ -126,7 +126,7 @@ export class AuthController {
   }
 
   @Post('/logout')
-  async logOut(@Res({ passthrough: true }) res: Response) {
+  logOut(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('refresh_token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

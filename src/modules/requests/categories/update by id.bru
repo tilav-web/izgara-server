@@ -1,0 +1,26 @@
+meta {
+  name: update by id
+  type: http
+  seq: 2
+}
+
+patch {
+  url: http://localhost:3000/categories/update/267ed9cc-650c-4255-927b-a6d8f16dfc61
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicm9sZSI6IlNVUEVSQURNSU4iLCJpYXQiOjE3NzAwNTI3ODAsImV4cCI6MTc3MDA1MzY4MH0.PCnnrjYQUz4g-p9tLQCD0cKLjqjvaGYqM5mG63OHgc0
+}
+
+body:multipart-form {
+  image: @file(/home/tilav_web/Pictures/images.jpeg)
+  ~name: 
+  ~sort_order: 
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

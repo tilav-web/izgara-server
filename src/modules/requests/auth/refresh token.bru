@@ -1,0 +1,22 @@
+meta {
+  name: refresh token
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:3000/auth/refresh-token
+  body: json
+  auth: bearer
+}
+
+body:json {
+  {
+    "refresh_token": ""
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

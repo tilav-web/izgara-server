@@ -1,0 +1,22 @@
+meta {
+  name: update profile
+  type: http
+  seq: 3
+}
+
+patch {
+  url: http://localhost:3000/users/update
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  image: @file(/home/tilav_web/Pictures/images.jpeg)
+  ~first_name: 
+  ~last_name: 
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

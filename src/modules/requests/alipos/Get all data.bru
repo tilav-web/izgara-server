@@ -1,0 +1,20 @@
+meta {
+  name: Get all data
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://localhost:3000/alipos
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicm9sZSI6IlNVUEVSQURNSU4iLCJpYXQiOjE3NzAwNTE1ODgsImV4cCI6MTc3MDA1MjQ4OH0.9R0Sl1Rs1-5dYRxwGJPj-jaehLC8fmwTJzPugjK2198
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

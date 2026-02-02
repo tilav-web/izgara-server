@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { AuthRoleEnum } from '../enums/auth-role.enum';
+import { Request } from 'express';
 
 @Injectable()
 export class AuthRoleGuard implements CanActivate {
@@ -22,8 +23,8 @@ export class AuthRoleGuard implements CanActivate {
       return true;
     }
 
-    const req = context.switchToHttp().getRequest();
-    const auth: { id: number; role: AuthRoleEnum } = req.user;
+    const req = context.switchToHttp().getRequest<Request>();
+    const auth = req.user as { id: number; role: AuthRoleEnum };
 
     if (!auth?.id || !auth.role) {
       throw new UnauthorizedException('Tizimga kirish kerak');
