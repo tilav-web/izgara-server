@@ -114,4 +114,8 @@ export class LocationService {
 
     return this.repository.delete(location_id);
   }
+
+  async findLocationById(id: string) {
+    return this.repository.findOne({ where: { id } });
+  }
 }

@@ -25,6 +25,10 @@ export class CategoryController {
   async findAll() {
     return this.categoryService.findAll();
   }
+  @Get('/:id')
+  async findById(@Param('id') id: string) {
+    return this.categoryService.findById(id);
+  }
 
   @Patch('/update/:id')
   @UseGuards(AuthGuard('jwt'), AuthRoleGuard)

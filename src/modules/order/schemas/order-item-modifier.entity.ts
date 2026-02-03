@@ -20,7 +20,7 @@ export class OrderItemModifier {
   modifier_id: string; // AliPos modifikator ID'si
 
   @Column()
-  name: string;
+  modifier_name: string;
 
   @Column({ type: 'decimal' })
   price: number;

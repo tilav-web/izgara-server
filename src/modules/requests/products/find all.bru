@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: http://localhost:3000/products?page=1&limit=10&price_min&category_id&price_max
+  url: https://api.cashout.uz/products?page=1&limit=10
   body: none
   auth: inherit
 }
@@ -13,9 +13,9 @@ get {
 params:query {
   page: 1
   limit: 10
-  price_min: 
-  category_id: 
-  price_max: 
+  ~price_min: 
+  ~category_id: 
+  ~price_max: 
 }
 
 settings {

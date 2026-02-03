@@ -18,6 +18,14 @@ export class CategoryService {
     return this.repository.find();
   }
 
+  async findById(id: string) {
+    return this.repository.findOne({
+      where: {
+        id,
+      },
+    });
+  }
+
   async upsertMany(
     data: {
       id: string;

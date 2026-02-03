@@ -21,10 +21,10 @@ export class Location {
   @Column({ name: 'user_id' })
   user_id: number;
 
-  @Column()
+  @Column({ type: 'varchar', length: 255 })
   title: string; // "Uyim", "Ishxonam"
 
-  @Column()
+  @Column({ type: 'text', nullable: true })
   address_line: string; // To'liq matnli manzil
 
   @Column({ type: 'decimal', precision: 10, scale: 7 })

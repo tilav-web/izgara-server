@@ -9,6 +9,7 @@ import {
   Between,
   DeepPartial,
   FindOptionsWhere,
+  In,
   LessThanOrEqual,
   MoreThanOrEqual,
   Repository,
@@ -19,6 +20,7 @@ import { claculateCoin } from '../../utils/calculate-coin';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { FileService } from '../file/file.service';
 import { FileFolderEnum } from '../file/enums/file-folder.enum';
+import { OrderProductDto } from '../order/dto/order-product.dto';
 
 @Injectable()
 export class ProductService {
@@ -30,6 +32,33 @@ export class ProductService {
 
   async saveMenu(products: DeepPartial<Product>[]) {
     return await this.repository.save(products);
+  }
+
+  async getTotalPrice(dto: OrderProductDto[]) {
+    if (dto.length === 0)
+      throw new BadRequestException('Mahsulotlarni tanlang!');
+
+    const ids = dto.map((item) => item.product_id);
+
+    const products = await this.repository.find({
+      where: {
+        id: In(ids),
+      },
+    });
+
+    if (products.length !== dto.length)
+      throw new BadRequestException('Mahsulotlarni tanlang!');
+
+    const quantityMap = new Map<string, number>();
+    dto.forEach((item) => quantityMap.set(item.product_id, item.quantity));
+
+    const total_price = products.reduce((acc, item) => {
+      const quantity = quantityMap.get(item.id);
+      if (!quantity) return acc;
+      return acc + item.price * quantity;
+    }, 0);
+
+    return total_price;
   }
 
   async findAll({
@@ -63,7 +92,6 @@ export class ProductService {
       where: filter,
       take: limit,
       skip,
-      order: { created_at: 'DESC' },
     });
 
     const products = data.map((item) => {
