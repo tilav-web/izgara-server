@@ -4,7 +4,6 @@ import {
   IsOptional,
   IsNumber,
   IsEnum,
-  IsBoolean,
   IsUUID,
 } from 'class-validator';
 import { MeasureEnum } from '../enums/measure.enum';
@@ -59,8 +58,6 @@ export class UpdateProductDto {
 
   @ApiPropertyOptional({ description: 'Mahsulot faolligi', example: true })
   @IsOptional()
-  @IsBoolean()
-  @Type(() => Boolean)
   @Transform(({ value }) => {
     if (value === 'true' || value === true) return true;
     if (value === 'false' || value === false) return false;

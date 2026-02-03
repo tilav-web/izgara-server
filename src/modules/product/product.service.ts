@@ -135,14 +135,20 @@ export class ProductService {
       });
     }
 
-    if (dto.name) product.name = dto.name;
-    if (dto.description) product.description = dto.description;
-    if (dto.vat) product.vat = dto.vat;
-    if (dto.measure_unit) product.measure_unit = dto.measure_unit;
-    if (dto.measure) product.measure = dto.measure;
-    if (dto.sort_order) product.sort_order = dto.sort_order;
-    if (dto.is_active) product.is_active = dto.is_active;
-    if (dto.category_id) product.category_id = dto.category_id;
+    if (dto.name !== undefined && dto.name !== null) product.name = dto.name;
+    if (dto.description !== undefined && dto.description !== null)
+      product.description = dto.description;
+    if (dto.vat !== undefined && dto.vat !== null) product.vat = dto.vat;
+    if (dto.measure_unit !== undefined && dto.measure_unit !== null)
+      product.measure_unit = dto.measure_unit;
+    if (dto.measure !== undefined && dto.measure !== null)
+      product.measure = dto.measure;
+    if (dto.sort_order !== undefined && dto.sort_order !== null)
+      product.sort_order = dto.sort_order;
+    if (dto.is_active !== undefined && dto.is_active !== null)
+      product.is_active = dto.is_active;
+    if (dto.category_id !== undefined && dto.category_id !== null)
+      product.category_id = dto.category_id;
 
     const result = await this.repository.save(product);
     return result;
