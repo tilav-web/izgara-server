@@ -11,6 +11,7 @@ import { ModifierGroupModule } from './modules/modifierGroup/modifier-group.modu
 import { AliPosModule } from './modules/alipos/alipos.module';
 import { FileModule } from './modules/file/file.module';
 import { LocationModule } from './modules/location/location.module';
+import { DeliverySettings } from './modules/deliverySettings/delivery-settings.entity';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { LocationModule } from './modules/location/location.module';
     ModifierGroupModule,
     FileModule,
     LocationModule,
+    DeliverySettings,
   ],
 })
 export class AppModule {}
