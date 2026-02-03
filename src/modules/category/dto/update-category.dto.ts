@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class UpdateCategoryDto {
   @ApiPropertyOptional({
@@ -15,7 +16,8 @@ export class UpdateCategoryDto {
     description: 'Saralash tartibi',
   })
   @IsOptional()
-  @IsInt()
+  @IsNumber()
+  @Type(() => Number)
   sort_order?: number;
 
   @ApiPropertyOptional({

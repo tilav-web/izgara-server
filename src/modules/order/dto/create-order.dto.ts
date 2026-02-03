@@ -12,6 +12,7 @@ import { OrderPaymentMethodEnum } from '../enums/order-payment-status.enum';
 import { OrderTypeEnum } from '../enums/order-type.enum';
 import { OrderProductDto } from './order-product.dto';
 import { OrderModifierDto } from './order-modifier.dto';
+import { PaymentProviderEnum } from '../../payment/enums/payment-provider.enum';
 
 export class CreateOrderDto {
   @ApiProperty({
@@ -20,6 +21,13 @@ export class CreateOrderDto {
   })
   @IsEnum(OrderTypeEnum)
   order_type: OrderTypeEnum;
+
+  @ApiProperty({
+    enum: PaymentProviderEnum,
+    example: PaymentProviderEnum.CLICK,
+  })
+  @IsEnum(PaymentProviderEnum)
+  payment_provider?: PaymentProviderEnum;
 
   @ApiProperty({
     enum: OrderPaymentMethodEnum,

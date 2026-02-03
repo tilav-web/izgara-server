@@ -18,6 +18,7 @@ import { CoinSettingsService } from '../../coinSettings/coin-settings.service';
 import { User } from '../../user/user.entity';
 import { OrderTypeEnum } from '../enums/order-type.enum';
 import { LocationService } from '../../location/location.service';
+import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
 
 @Injectable()
 export class OrderService {
@@ -99,10 +100,11 @@ export class OrderService {
           customer_phone: user.phone,
           lat: location.latitude,
           lng: location.longitude,
+          payment_status: PaymentStatusEnum.SUCCESS,
         });
 
-        await this.orderRepository.save(order);
-        
+        const result = await this.orderRepository.save(order);
+        return result;
       }
     }
   }
