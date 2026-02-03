@@ -22,9 +22,7 @@ export class DeliverySettingsController {
   ) {}
 
   @Get()
-  @Roles(AuthRoleEnum.SUPERADMIN)
-  @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
-  find() {
+  findSettings() {
     return this.deliverySettingsService.findSettings();
   }
 
