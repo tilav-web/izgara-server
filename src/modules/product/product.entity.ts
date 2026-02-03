@@ -41,7 +41,7 @@ export class Product {
   @Column({ default: 0 })
   sort_order: number; // Kategoriyasi ichidagi tartib raqami [cite: 42]
 
-  @Column({ default: false })
+  @Column({ default: true })
   is_active: boolean; // Mahsulot stop-listda ekanligi (Webhook orqali boshqariladi) [cite: 161]
 
   @Column()
