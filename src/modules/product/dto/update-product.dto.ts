@@ -8,6 +8,7 @@ import {
   IsUUID,
 } from 'class-validator';
 import { MeasureEnum } from '../enums/measure.enum';
+import { Transform, Type } from 'class-transformer';
 
 export class UpdateProductDto {
   @ApiPropertyOptional({ description: 'Mahsulot nomi', example: 'Olma' })
@@ -26,6 +27,7 @@ export class UpdateProductDto {
   @ApiPropertyOptional({ description: 'QQS stavkasi foizda', example: 15 })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   vat?: number;
 
   @ApiPropertyOptional({
@@ -43,6 +45,7 @@ export class UpdateProductDto {
   })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   measure?: number;
 
   @ApiPropertyOptional({
@@ -51,11 +54,18 @@ export class UpdateProductDto {
   })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   sort_order?: number;
 
   @ApiPropertyOptional({ description: 'Mahsulot faolligi', example: true })
   @IsOptional()
   @IsBoolean()
+  @Type(() => Boolean)
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
   is_active?: boolean;
 
   @ApiPropertyOptional({
