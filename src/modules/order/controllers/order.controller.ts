@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { OrderService } from '../services/order.service';
 import { AuthGuard } from '@nestjs/passport';
 import type { Request } from 'express';
@@ -7,6 +15,7 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
 import { AuthRoleGuard } from '../../auth/guard/role.guard';
+import { FilterOrderDto } from '../dto/filter-order.dto';
 
 @Controller('orders')
 export class OrdersController {
@@ -16,8 +25,8 @@ export class OrdersController {
   @Roles(AuthRoleEnum.SUPERADMIN)
   @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
   @ApiBearerAuth('access_token')
-  async findAll() {
-    return this.orderService.findAll();
+  async findAll(@Query() dto: FilterOrderDto) {
+    return this.orderService.findAll(dto);
   }
 
   @Post('/create')

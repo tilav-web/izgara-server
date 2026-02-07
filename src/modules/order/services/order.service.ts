@@ -25,6 +25,7 @@ import { DeliverySettingsService } from '../../deliverySettings/delivery-setting
 import { PaymentProviderEnum } from '../../payment/enums/payment-provider.enum';
 import { PaymentTransaction } from '../../payment/payment-transaction.entity';
 import { generateClickUrl } from '../../../utils/generate-click-url';
+import { FilterOrderDto } from '../dto/filter-order.dto';
 
 @Injectable()
 export class OrderService {
@@ -82,14 +83,110 @@ export class OrderService {
     return { total_price, user };
   }
 
-  async findAll() {
-    return this.orderRepository.find({
-      relations: {
-        location: true,
-        user: true,
-        transactions: true,
-      },
-    });
+  async findAll(filter: FilterOrderDto) {
+    const qb = this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.location', 'location')
+      .leftJoinAndSelect('order.user', 'user')
+      .leftJoinAndSelect('order.transactions', 'transactions');
+
+    // ===== BASIC FILTERS =====
+
+    if (filter.user_id) {
+      qb.andWhere('order.user_id = :user_id', {
+        user_id: filter.user_id,
+      });
+    }
+
+    if (filter.order_number) {
+      qb.andWhere('order.order_number ILIKE :order_number', {
+        order_number: `%${filter.order_number}%`,
+      });
+    }
+
+    if (filter.status) {
+      qb.andWhere('order.status = :status', {
+        status: filter.status,
+      });
+    }
+
+    if (filter.order_type) {
+      qb.andWhere('order.order_type = :order_type', {
+        order_type: filter.order_type,
+      });
+    }
+
+    if (filter.payment_method) {
+      qb.andWhere('order.payment_method = :payment_method', {
+        payment_method: filter.payment_method,
+      });
+    }
+
+    if (filter.payment_status) {
+      qb.andWhere('order.payment_status = :payment_status', {
+        payment_status: filter.payment_status,
+      });
+    }
+
+    if (filter.customer_phone) {
+      qb.andWhere('order.customer_phone ILIKE :phone', {
+        phone: `%${filter.customer_phone}%`,
+      });
+    }
+
+    // ===== PRICE FILTER =====
+
+    if (filter.min_total_price) {
+      qb.andWhere('order.total_price >= :min_price', {
+        min_price: filter.min_total_price,
+      });
+    }
+
+    if (filter.max_total_price) {
+      qb.andWhere('order.total_price <= :max_price', {
+        max_price: filter.max_total_price,
+      });
+    }
+
+    // ===== DATE FILTER =====
+
+    if (filter.from_date) {
+      qb.andWhere('order.created_at >= :from_date', {
+        from_date: filter.from_date,
+      });
+    }
+
+    if (filter.to_date) {
+      qb.andWhere('order.created_at <= :to_date', {
+        to_date: filter.to_date,
+      });
+    }
+
+    // ===== SORT =====
+
+    qb.orderBy(
+      `order.${filter.sort_by ?? 'created_at'}`,
+      filter.sort_order ?? 'DESC',
+    );
+
+    // ===== PAGINATION =====
+
+    const page = filter.page ?? 1;
+    const limit = filter.limit ?? 10;
+
+    qb.skip((page - 1) * limit).take(limit);
+
+    // ===== EXECUTE =====
+
+    const [orders, total] = await qb.getManyAndCount();
+
+    return {
+      orders,
+      total,
+      page,
+      limit,
+      total_pages: Math.ceil(total / limit),
+    };
   }
 
   async findById(id: string) {
