@@ -1,25 +1,24 @@
 export const generateClickUrl = ({
   amount,
-  transaction_id,
+  order_id,
 }: {
   amount: number;
-  transaction_id: string;
+  order_id: string;
 }) => {
   const service_id = process.env.CLICK_SERVICE_ID;
   const merchant_id = process.env.CLICK_MERCHANT_ID;
-  const merchant_user_id = process.env.CLICK_MERCHANT_USER_ID;
   const return_url = process.env.CLICK_RETURN_URL;
 
-  if (!service_id || !merchant_id || !return_url || !merchant_user_id) {
+  if (!service_id || !merchant_id || !return_url) {
     throw new Error("Click to'lov tizimi sozlamalari to'liq emas!");
   }
 
+  // 2. Parametrlarni yig'amiz
   const params = new URLSearchParams({
     service_id: service_id,
     merchant_id: merchant_id,
-    amount: amount.toFixed(2),
-    transaction_param: transaction_id,
-    merchant_user_id: merchant_user_id,
+    amount: Number(amount).toFixed(2),
+    transaction_param: order_id,
     return_url: return_url,
   });
 

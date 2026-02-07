@@ -58,7 +58,7 @@ export class ProductService {
       return acc + item.price * quantity;
     }, 0);
 
-    return total_price;
+    return { total_price };
   }
 
   async findAll({

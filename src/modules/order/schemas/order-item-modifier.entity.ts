@@ -13,11 +13,14 @@ export class OrderItemModifier {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => OrderItem, (item) => item.selected_modifiers)
+  @ManyToOne(() => OrderItem, (item) => item.modifiers)
   order_item: OrderItem;
 
   @Column()
   modifier_id: string; // AliPos modifikator ID'si
+
+  @Column()
+  quantity: number;
 
   @Column()
   modifier_name: string;

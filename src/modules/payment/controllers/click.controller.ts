@@ -10,7 +10,7 @@ export class ClickController {
     private readonly clickService: ClickService,
   ) {}
 
-  @Post('webhoo')
+  @Post('webhook')
   @HttpCode(HttpStatus.OK)
   async handleWebhook(@Body() body: ClickWebhookDto) {
     return this.clickService.handleWebhook(body);

@@ -9,10 +9,12 @@ import { AliPosController } from './controllers/alipos.controller';
 import { AliPosService } from './services/alipos.service';
 import { AuthModule } from '../auth/auth.module';
 import { Modifier } from '../modifier/modifier.entity';
+import { OrderModule } from '../order/order.module';
+import { Order } from '../order/schemas/order.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Product, Modifier]),
+    TypeOrmModule.forFeature([Product, Modifier, Order]),
     HttpModule.register({
       baseURL: 'https://web.alipos.uz',
       timeout: 5000,
@@ -20,6 +22,7 @@ import { Modifier } from '../modifier/modifier.entity';
     CategoryModule,
     ProductModule,
     AuthModule,
+    OrderModule,
   ],
   controllers: [AliPosController],
   providers: [AliPosBaseService, AliPosService],

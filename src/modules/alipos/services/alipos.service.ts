@@ -17,6 +17,9 @@ import { MeasureEnum } from '../../product/enums/measure.enum';
 import { CategoryService } from '../../category/category.service';
 import { Modifier } from '../../modifier/modifier.entity';
 import { type AxiosError } from 'axios';
+import { Order } from '../../order/schemas/order.entity';
+import { OrderPaymentMethodEnum } from '../../order/enums/order-payment-status.enum';
+import { OrderTypeEnum } from '../../order/enums/order-type.enum';
 
 interface AlipostApiResponse {
   categories: {
@@ -62,6 +65,8 @@ export class AliPosService extends AliPosBaseService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Modifier)
     private readonly modifierRepository: Repository<Modifier>,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
   ) {
     super(httpService, configService);
   }
@@ -171,5 +176,107 @@ export class AliPosService extends AliPosBaseService {
     }
 
     throw new NotFoundException('Mahsulot yoki modifikator topilmadi');
+  }
+
+  async sendOrderToAlipos(order_id: string) {
+    const order = await this.orderRepository.findOne({
+      where: { id: order_id },
+      relations: ['items', 'items.modifiers'],
+    });
+
+    if (!order) throw new NotFoundException('Order topilmadi!');
+
+    // 1. To'lov ID-larini ConfigService orqali .env dan olish
+    let aliposPaymentId: string;
+
+    const CASH_ID = this.configService.get<string>(
+      'ALIPOS_PAYMENT_CASH',
+    ) as string;
+    const TERMINAL_ID = this.configService.get<string>(
+      'ALIPOS_PAYMENT_TERMINAL',
+    ) as string;
+    const ONLINE_ID = this.configService.get<string>('ALIPOS_PAYMENT_ONLINE');
+    const COIN_ID = this.configService.get<string>('ALIPOS_PAYMENT_COIN');
+
+    switch (order.payment_method) {
+      case OrderPaymentMethodEnum.PAYMENT_CASH:
+        aliposPaymentId = CASH_ID;
+        break;
+      case OrderPaymentMethodEnum.PAYMENT_TERMINAL:
+        aliposPaymentId = TERMINAL_ID;
+        break;
+      case OrderPaymentMethodEnum.PAYMENT_ONLINE:
+        aliposPaymentId = ONLINE_ID || TERMINAL_ID; // Agar ONLINE_ID bo'lmasa TERMINAL_ID ishlatiladi
+        break;
+      case OrderPaymentMethodEnum.PAYMENT_COIN:
+        aliposPaymentId = COIN_ID || TERMINAL_ID; // Coin uchun maxsus ID bo'lmasa Card ID yuboriladi
+        break;
+      default:
+        aliposPaymentId = CASH_ID;
+    }
+
+    // 2. AliPos Payload tayyorlash
+    const payload = {
+      discriminator:
+        order.order_type === OrderTypeEnum.DELIVERY ? 'delivery' : 'pickup',
+      platform: 'IZGARA_MOBILE',
+      eatsId: order.id,
+      restaurantId: this.restaurantId,
+      comment: order.address
+        ? 'TEST QILINMOQDA' + order.address
+        : 'TEST QILINMOQDA',
+      deliveryInfo: {
+        clientName: 'Mijoz',
+        phoneNumber: order.customer_phone,
+        deliveryAddress:
+          order.order_type === OrderTypeEnum.DELIVERY
+            ? {
+                full: order.address || "Manzil ko'rsatilmadi",
+                latitude: order.lat?.toString() || '0',
+                longitude: order.lng?.toString() || '0',
+              }
+            : null,
+      },
+      paymentInfo: {
+        paymentId: aliposPaymentId,
+        itemsCost: Number(order.total_price),
+        total: Number(order.total_price),
+        deliveryFee: 0,
+      },
+      items: order.items.map((item) => ({
+        id: item.product_id,
+        quantity: Number(item.quantity),
+        price: Number(item.price),
+        modifications: (item.modifiers || []).map((mod) => ({
+          id: mod.modifier_id,
+          quantity: Number(mod.quantity || 1),
+          price: Number(mod.price),
+        })),
+      })),
+    };
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post('api/Integration/v1/order', payload),
+      );
+
+      const data = response.data as { id: string };
+
+      if (data && data.id) {
+        await this.orderRepository.update(order.id, {
+          alipos_order_id: data.id,
+        });
+      }
+      console.log(response.data);
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      console.error(
+        'AliPos Error Details:',
+        axiosError.response?.data || axiosError.message,
+      );
+      throw new BadGatewayException(
+        'AliPos-ga buyurtma yuborishda xatolik yuz berdi',
+      );
+    }
   }
 }

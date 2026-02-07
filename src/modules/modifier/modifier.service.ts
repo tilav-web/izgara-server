@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Modifier } from './modifier.entity';
 import { In, Repository } from 'typeorm';
@@ -12,8 +12,7 @@ export class ModifierService {
   ) {}
 
   async getTotalPrice(dto?: OrderModifierDto[]) {
-    if (!dto || dto.length === 0)
-      throw new BadRequestException('Mahsulotlarni tanlang!');
+    if (!dto || dto.length === 0) return { total_price: 0 };
 
     const ids = dto.map((item) => item.modifier_id);
 
@@ -23,8 +22,7 @@ export class ModifierService {
       },
     });
 
-    if (modifiers.length !== dto.length)
-      throw new BadRequestException('Mahsulotlarni tanlang!');
+    if (!modifiers.length) return { total_price: 0 };
 
     const quantityMap = new Map<string, number>();
     dto.forEach((item) => quantityMap.set(item.modifier_id, item.quantity));
@@ -35,6 +33,6 @@ export class ModifierService {
       return acc + item.price * quantity;
     }, 0);
 
-    return total_price;
+    return { total_price };
   }
 }

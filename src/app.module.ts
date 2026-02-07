@@ -12,11 +12,24 @@ import { AliPosModule } from './modules/alipos/alipos.module';
 import { FileModule } from './modules/file/file.module';
 import { LocationModule } from './modules/location/location.module';
 import { DeliverySettingsModule } from './modules/deliverySettings/delivery-settings.module';
+import { BullModule } from '@nestjs/bullmq';
+import { JobsModule } from './modules/jobs/jobs.module';
+import { OrderModule } from './modules/order/order.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          host: config.get('REDIS_HOST'),
+          port: config.get('REDIS_PORT'),
+        },
+      }),
+      inject: [ConfigService],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -47,6 +60,8 @@ import { DeliverySettingsModule } from './modules/deliverySettings/delivery-sett
     FileModule,
     LocationModule,
     DeliverySettingsModule,
+    JobsModule,
+    OrderModule,
   ],
 })
 export class AppModule {}

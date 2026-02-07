@@ -60,7 +60,6 @@ export class Order {
   @Column({
     type: 'enum',
     enum: OrderPaymentMethodEnum,
-    default: OrderPaymentMethodEnum.PAYMENT_CASH,
   })
   payment_method: OrderPaymentMethodEnum;
 
