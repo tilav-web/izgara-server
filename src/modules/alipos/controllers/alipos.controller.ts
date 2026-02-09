@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Headers,
@@ -48,5 +49,18 @@ export class AliPosController {
       clientId,
       clientSecret,
     });
+  }
+
+  @Post('/webhook/order/status')
+  async webHookOrderStatus(
+    @Body()
+    body: {
+      externalId: string;
+      status: string;
+      orderNumber?: string;
+      cancelReason?: string;
+    },
+  ) {
+    return this.aliPosService.updateOrderStatus(body);
   }
 }

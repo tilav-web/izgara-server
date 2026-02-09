@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { AuthStatusEnum } from '../../auth/enums/status.enum';
 import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class UsersFilterDto {
   @ApiPropertyOptional({
@@ -18,6 +18,9 @@ export class UsersFilterDto {
     description: 'Foydalanuvchi statusi',
   })
   @IsOptional()
+  @Transform(({ value }: { value: AuthStatusEnum | '' }) =>
+    value === '' ? undefined : value,
+  )
   @IsEnum(AuthStatusEnum)
   status?: AuthStatusEnum;
 
@@ -27,6 +30,9 @@ export class UsersFilterDto {
     description: 'Foydalanuvchi roli',
   })
   @IsOptional()
+  @Transform(({ value }: { value: AuthRoleEnum | '' }) =>
+    value === '' ? undefined : value,
+  )
   @IsEnum(AuthRoleEnum)
   role?: AuthRoleEnum;
 

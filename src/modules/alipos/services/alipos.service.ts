@@ -20,6 +20,8 @@ import { type AxiosError } from 'axios';
 import { Order } from '../../order/schemas/order.entity';
 import { OrderPaymentMethodEnum } from '../../order/enums/order-payment-status.enum';
 import { OrderTypeEnum } from '../../order/enums/order-type.enum';
+import { OrderStatusEnum } from '../../order/enums/order-status.enum';
+import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
 
 interface AlipostApiResponse {
   categories: {
@@ -278,5 +280,52 @@ export class AliPosService extends AliPosBaseService {
         'AliPos-ga buyurtma yuborishda xatolik yuz berdi',
       );
     }
+  }
+
+  // alipos.service.ts ichida
+
+  async updateOrderStatus(body: {
+    externalId: string;
+    status: string;
+    orderNumber?: string;
+    cancelReason?: string;
+  }) {
+    const { externalId, status } = body;
+
+    // 1. Buyurtmani bazadan qidirish
+    const order = await this.orderRepository.findOne({
+      where: { id: externalId },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${externalId} not found`);
+    }
+
+    // 2. AliPos statuslarini o'zingizning OrderStatusEnum-ga map qilish
+    // AliPos statuslari: NEW, IN_PROGRESS, READY_FOR_PICKUP, ON_WAY, DELIVERED, CANCELLED
+    switch (status) {
+      case 'IN_PROGRESS':
+        order.status = OrderStatusEnum.IN_PROGRESS;
+        break;
+      case 'READY_FOR_PICKUP':
+        order.status = OrderStatusEnum.READY;
+        break;
+      case 'ON_WAY':
+        order.status = OrderStatusEnum.IN_PROGRESS; // yoki alohida SHIPPED statusi bo'lsa
+        break;
+      case 'DELIVERED':
+      case 'CLOSED':
+        order.status = OrderStatusEnum.DELIVERED;
+        order.payment_status = PaymentStatusEnum.SUCCESS; // Yakuniy tasdiq
+        break;
+      case 'CANCELLED':
+        order.status = OrderStatusEnum.CANCELLED;
+        // Agar bekor bo'lsa, coinlarni qaytarish mantiqini shu yerga qo'shish mumkin
+        break;
+    }
+
+    await this.orderRepository.save(order);
+
+    return { success: true, newStatus: order.status };
   }
 }
