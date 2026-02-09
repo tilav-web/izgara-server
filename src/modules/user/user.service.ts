@@ -128,6 +128,7 @@ export class UserService {
     if (dto.last_name) user.last_name = dto.last_name;
 
     const result = await this.repository.save(user);
+    await this.userRedisService.setUserDetails({ user: result, auth_id });
     return result;
   }
 }

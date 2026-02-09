@@ -181,4 +181,22 @@ export class ProductService {
     const result = await this.repository.save(product);
     return result;
   }
+
+  async findByIds(dto: OrderProductDto[]) {
+    const ids = dto.map((item) => item.product_id);
+
+    const products = await this.repository.find({
+      where: { id: In(ids) },
+    });
+
+    const result = products.map((product) => {
+      const found = dto.find((d) => d.product_id === product.id);
+      return {
+        ...product,
+        quantity: found?.quantity ?? 1,
+      };
+    });
+
+    return result;
+  }
 }

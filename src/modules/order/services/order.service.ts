@@ -289,6 +289,8 @@ export class OrderService {
           .where('id = :id', { id: user.id })
           .execute();
 
+        const products = await this.productService.findByIds(dto.products);
+
         const order = this.orderRepository.create({
           order_type: dto.order_type,
           payment_method: OrderPaymentMethodEnum.PAYMENT_COIN,
@@ -301,6 +303,14 @@ export class OrderService {
           lat: location.latitude,
           lng: location.longitude,
           payment_status: PaymentStatusEnum.SUCCESS,
+          items: products.map((item) => {
+            return {
+              product_id: item.id,
+              product_name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+            };
+          }),
         });
 
         await this.orderRepository.save(order);
