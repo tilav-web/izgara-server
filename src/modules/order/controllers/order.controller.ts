@@ -16,6 +16,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
 import { AuthRoleGuard } from '../../auth/guard/role.guard';
 import { FilterOrderDto } from '../dto/filter-order.dto';
+import { AuthStatusGuard } from '../../auth/guard/status.guard';
 
 @Controller('orders')
 export class OrdersController {
@@ -23,7 +24,7 @@ export class OrdersController {
 
   @Get('/')
   @Roles(AuthRoleEnum.SUPERADMIN)
-  @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
   @ApiBearerAuth('access_token')
   async findAll(@Query() dto: FilterOrderDto) {
     return this.orderService.findAll(dto);
@@ -35,5 +36,16 @@ export class OrdersController {
   async createOrder(@Req() req: Request, @Body() dto: CreateOrderDto) {
     const auth = req.user as { id: number };
     return this.orderService.createOrder(auth.id, dto);
+  }
+
+  @Get('/find/my-orders')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access_token')
+  async findMyOrders(
+    @Req() req: Request,
+    @Query() { page, limit }: { page?: number; limit?: number },
+  ) {
+    const auth = req.user as { id: number };
+    return this.orderService.findOrdersByAuthId(auth.id, { page, limit });
   }
 }

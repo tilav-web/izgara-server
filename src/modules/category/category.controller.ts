@@ -16,6 +16,7 @@ import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 import { ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { AuthStatusGuard } from '../auth/guard/status.guard';
 
 @Controller('categories')
 export class CategoryController {
@@ -31,7 +32,7 @@ export class CategoryController {
   }
 
   @Patch('/update/:id')
-  @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
   @Roles(AuthRoleEnum.SUPERADMIN)
   @ApiConsumes('multipart/form-data')
   @ApiBearerAuth('access_token')

@@ -6,6 +6,7 @@ import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 import { AuthRoleGuard } from '../auth/guard/role.guard';
 import { UpdateCoinSettingsDto } from './dto/update-coin-settings.dto';
 import { ApiBearerAuth } from '@nestjs/swagger';
+import { AuthStatusGuard } from '../auth/guard/status.guard';
 
 @Controller('coin-settings')
 export class CoinSettingsController {
@@ -17,7 +18,7 @@ export class CoinSettingsController {
   }
 
   @Patch('/update')
-  @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
   @Roles(AuthRoleEnum.SUPERADMIN)
   @ApiBearerAuth('access_token')
   async updateCoinSettings(@Body() body: UpdateCoinSettingsDto) {

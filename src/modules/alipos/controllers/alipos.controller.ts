@@ -16,13 +16,14 @@ import { AuthRoleGuard } from '../../auth/guard/role.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
 import { ApiBearerAuth } from '@nestjs/swagger';
+import { AuthStatusGuard } from '../../auth/guard/status.guard';
 
 @Controller('alipos')
 export class AliPosController {
   constructor(private readonly aliPosService: AliPosService) {}
 
   @Get()
-  @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
   @ApiBearerAuth('access_token')
   @Roles(AuthRoleEnum.SUPERADMIN)
   async findAllAliposData() {

@@ -19,13 +19,14 @@ import { AuthRoleGuard } from '../auth/guard/role.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 import { UsersFilterDto } from './dto/users-filter.dto';
+import { AuthStatusGuard } from '../auth/guard/status.guard';
 
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get('/')
-  @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
   @Roles(AuthRoleEnum.SUPERADMIN)
   @ApiBearerAuth('access_token')
   async findAll(@Query() query: UsersFilterDto) {

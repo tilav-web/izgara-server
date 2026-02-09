@@ -18,6 +18,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 import { ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { AuthStatusGuard } from '../auth/guard/status.guard';
 
 @Controller('products')
 export class ProductController {
@@ -34,7 +35,7 @@ export class ProductController {
   }
 
   @Patch('/update/:id')
-  @UseGuards(AuthGuard('jwt'), AuthRoleGuard)
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
   @Roles(AuthRoleEnum.SUPERADMIN)
   @ApiConsumes('multipart/form-data')
   @ApiBearerAuth('access_token')

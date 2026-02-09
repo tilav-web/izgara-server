@@ -162,13 +162,6 @@ export class OrderService {
       });
     }
 
-    // ===== SORT =====
-
-    qb.orderBy(
-      `order.${filter.sort_by ?? 'created_at'}`,
-      filter.sort_order ?? 'DESC',
-    );
-
     // ===== PAGINATION =====
 
     const page = filter.page ?? 1;
@@ -185,6 +178,42 @@ export class OrderService {
       total,
       page,
       limit,
+      total_pages: Math.ceil(total / limit),
+    };
+  }
+
+  async findOrdersByAuthId(
+    auth_id: number,
+    { page = 1, limit = 10 }: { page?: number; limit?: number },
+  ) {
+    const user = await this.userService.findByAuthId(auth_id);
+    if (!user) {
+      throw new ForbiddenException('Foydalanuvchi topilmadi!');
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [orders, total] = await this.orderRepository.findAndCount({
+      where: {
+        user_id: user.id,
+      },
+      relations: {
+        items: true,
+        transactions: true,
+        location: true,
+      },
+      order: {
+        created_at: 'DESC',
+      },
+      skip,
+      take: limit,
+    });
+
+    return {
+      orders,
+      page,
+      limit,
+      total,
       total_pages: Math.ceil(total / limit),
     };
   }

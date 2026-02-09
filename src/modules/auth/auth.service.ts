@@ -1,7 +1,9 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Auth } from './auth.entity';
@@ -15,11 +17,15 @@ import { AuthRoleEnum } from './enums/auth-role.enum';
 import * as bcrypt from 'bcrypt';
 import { UserService } from '../user/user.service';
 import { UserRedisService } from '../redis/user-redis.service';
+import { UpdateUserAuthDto } from './dto/update-user-auth.dto';
+import { AuthStatusEnum } from './enums/status.enum';
+import { User } from '../user/user.entity';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(Auth) private readonly repository: Repository<Auth>,
+    @InjectRepository(User) private readonly userRepository: Repository<User>,
     private readonly otpRedisService: OtpRedisService,
     private readonly userRedisService: UserRedisService,
     private readonly authRedisService: AuthRedisService,
@@ -215,5 +221,99 @@ export class AuthService {
     });
 
     return { access_token };
+  }
+
+  async updateForAdmin({
+    auth_id,
+    user_id,
+    first_name,
+    last_name,
+    status,
+    role,
+  }: {
+    auth_id: number; // admin auth id
+    user_id: number; // user id
+  } & UpdateUserAuthDto) {
+    if (!user_id)
+      throw new NotFoundException('Foydalanuvhci id sini yuboring!');
+
+    const superAdminAuth = await this.findById(auth_id);
+
+    if (!superAdminAuth)
+      throw new NotFoundException('Admin malumotlari topilmadi!');
+
+    const userAuth = await this.repository.findOne({
+      where: {
+        user_id,
+      },
+    });
+
+    if (!userAuth)
+      throw new NotFoundException('Foydalanuvchi malumotlari topilmadi!');
+
+    const user = await this.userRepository.findOne({
+      where: {
+        id: user_id,
+      },
+    });
+
+    if (!user)
+      throw new NotFoundException('Foydalanuvchi malumotlari topilmadi!');
+
+    const superAdminPhone = process.env.SUPERADMIN_PHONE as string;
+
+    if (!superAdminPhone) {
+      throw new NotFoundException(
+        'Dasturchiga murojat qiling .env da super adminning telefon raqami topilmadi!',
+      );
+    }
+
+    if (first_name) user.first_name = first_name;
+    if (last_name) user.last_name = last_name;
+
+    if (status && status === AuthStatusEnum.ACCOUNT_DELETED)
+      throw new ForbiddenException(
+        `Foydalanuvchi status-ni ${AuthStatusEnum.ACCOUNT_DELETED} qilish mumkin emas.`,
+      );
+
+    if (status && userAuth.phone === superAdminPhone)
+      throw new ForbiddenException(
+        "Sizga super adminning status-ni o'zgartirish uchun huquq berilmagan!",
+      );
+
+    if (role && userAuth.phone === superAdminPhone)
+      throw new ForbiddenException(
+        "Sizga super adminning role-ni o'zgartirish uchun huquq berilmagan!",
+      );
+
+    if (role === AuthRoleEnum.SUPERADMIN && userAuth.phone !== superAdminPhone)
+      throw new ForbiddenException(
+        `${AuthRoleEnum.SUPERADMIN} role-ni berish uchun siz super puper admin bo'lishingiz kerak!`,
+      );
+
+    if (status === AuthStatusEnum.DELETED && userAuth.phone !== superAdminPhone)
+      throw new ForbiddenException(
+        "Foydalanuvchi malumotlarini faqatgina super puper admin o'chira oladi!",
+      );
+
+    if (status === AuthStatusEnum.DELETED) {
+      await this.repository.delete({ id: userAuth.id });
+      user.status = AuthStatusEnum.DELETED;
+      await this.userRepository.save(user);
+      return user;
+    }
+
+    if (status) {
+      user.status = status;
+      userAuth.status = status;
+    }
+    if (role) {
+      user.role = role;
+      userAuth.role = role;
+    }
+
+    await this.userRepository.save(user);
+    await this.repository.save(userAuth);
+    return user;
   }
 }

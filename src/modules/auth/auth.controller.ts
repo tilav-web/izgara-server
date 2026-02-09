@@ -1,16 +1,25 @@
 import {
   Body,
   Controller,
+  Param,
+  Patch,
   Post,
   Req,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { type Response } from 'express';
+import type { Request, Response } from 'express';
 import { AuthDto } from './dto/auth.dto';
 import { OtpDto } from './dto/otp.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { Roles } from './decorators/roles.decorator';
+import { AuthRoleEnum } from './enums/auth-role.enum';
+import { AuthGuard } from '@nestjs/passport';
+import { AuthRoleGuard } from './guard/role.guard';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import { AuthStatusGuard } from './guard/status.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -133,5 +142,14 @@ export class AuthController {
       sameSite: 'lax',
     });
     res.json({ message: 'Tizimdan chiqildi!' });
+  }
+
+  @Patch('/update-one/:id')
+  @Roles(AuthRoleEnum.SUPERADMIN)
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
+  @ApiBearerAuth('access_token')
+  async updateForAdmin(@Req() req: Request, @Param('id') user_id: number) {
+    const auth = req.user as { id: number };
+    return this.authService.updateForAdmin({ auth_id: auth.id, user_id });
   }
 }
