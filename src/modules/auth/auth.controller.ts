@@ -20,6 +20,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthRoleGuard } from './guard/role.guard';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { AuthStatusGuard } from './guard/status.guard';
+import { UpdateUserAuthDto } from './dto/update-user-auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -148,8 +149,16 @@ export class AuthController {
   @Roles(AuthRoleEnum.SUPERADMIN)
   @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
   @ApiBearerAuth('access_token')
-  async updateForAdmin(@Req() req: Request, @Param('id') user_id: number) {
+  async updateForAdmin(
+    @Req() req: Request,
+    @Param('id') user_id: number,
+    @Body() body: UpdateUserAuthDto,
+  ) {
     const auth = req.user as { id: number };
-    return this.authService.updateForAdmin({ auth_id: auth.id, user_id });
+    return this.authService.updateForAdmin({
+      auth_id: auth.id,
+      user_id,
+      ...body,
+    });
   }
 }
