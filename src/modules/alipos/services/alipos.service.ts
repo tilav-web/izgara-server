@@ -230,6 +230,7 @@ export class AliPosService extends AliPosBaseService {
     }
 
     // 2. AliPos Payload tayyorlash
+
     const payload = {
       discriminator:
         order.order_type === OrderTypeEnum.DELIVERY ? 'delivery' : 'pickup',
@@ -279,14 +280,20 @@ export class AliPosService extends AliPosBaseService {
     };
 
     try {
-      await firstValueFrom(
-        this.httpService.post('api/Integration/v1/order', payload),
-      ).then((response) => {
-        console.log(response.data);
-        console.log(
-          '*********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************',
-        );
-      });
+      // const response = await firstValueFrom(
+      //   this.httpService.post('api/Integration/v1/order', payload),
+      // );
+      // const data = response.data as {
+      //   orderId: string;
+      // };
+
+      // await this.orderRepository.save({
+      //   ...order,
+      //   order_number: data.orderId,
+      //   status: OrderStatusEnum.IN_PROGRESS,
+      // });
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      console.log(payload);
     } catch (error) {
       const axiosError = error as AxiosError;
       console.error(
@@ -303,7 +310,6 @@ export class AliPosService extends AliPosBaseService {
     eatsId: string;
     status: string;
     orderNumber?: string;
-    id?: string;
   }) {
     const { eatsId, status } = body;
 
@@ -326,9 +332,6 @@ export class AliPosService extends AliPosBaseService {
         order.status = OrderStatusEnum.IN_PROGRESS;
         if (body.orderNumber) {
           order.order_number = body.orderNumber;
-        }
-        if (body.id) {
-          order.alipos_order_id = body.id;
         }
         break;
       case 'READY':

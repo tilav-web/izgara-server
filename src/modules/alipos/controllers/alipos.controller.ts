@@ -56,7 +56,6 @@ export class AliPosController {
   async webHookOrderStatus(
     @Body()
     body: {
-      id?: string;
       eatsId: string;
       status: string;
       orderNumber?: string;
