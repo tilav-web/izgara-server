@@ -254,7 +254,12 @@ export class AliPosService extends AliPosBaseService {
       paymentInfo: {
         paymentId: aliposPaymentId,
         itemsCost: Number(order.total_price),
-        total: Number(order.total_price),
+        total:
+          Number(order.total_price) >
+          Number(deliverySettings.free_delivery_threshold)
+            ? Number(order.total_price)
+            : Number(deliverySettings.delivery_price) +
+              Number(order.total_price),
         deliveryFee:
           Number(order.total_price) >
           Number(deliverySettings.free_delivery_threshold)
