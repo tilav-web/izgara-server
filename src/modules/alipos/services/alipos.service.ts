@@ -229,7 +229,7 @@ export class AliPosService extends AliPosBaseService {
     const payload = {
       discriminator:
         order.order_type === OrderTypeEnum.DELIVERY ? 'delivery' : 'pickup',
-      platform: 'IZGARA_MOBILE',
+      platform: 'CLIENT_APP_ANDROID',
       eatsId: order.id,
       restaurantId: this.restaurantId,
       comment: order.address
