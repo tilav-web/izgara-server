@@ -15,8 +15,12 @@ export class OrderItemModifier {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => OrderItem, (item) => item.modifiers)
+  @ManyToOne(() => OrderItem, (item) => item.order_item_modifiers)
+  @JoinColumn({ name: 'order_item_id' })
   order_item: OrderItem;
+
+  @Column()
+  order_item_id: number;
 
   @ManyToOne(() => Modifier)
   @JoinColumn({ name: 'modifier_id' })

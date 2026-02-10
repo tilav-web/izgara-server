@@ -79,7 +79,7 @@ export class UserService {
       relations: {
         orders: {
           items: {
-            modifiers: {
+            order_item_modifiers: {
               modifier: true,
             },
             product: true,

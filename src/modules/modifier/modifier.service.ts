@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Modifier } from './modifier.entity';
 import { In, Repository } from 'typeorm';
@@ -34,5 +38,36 @@ export class ModifierService {
     }, 0);
 
     return { total_price };
+  }
+
+  async findByIds(dto?: OrderModifierDto[]) {
+    // 1. Bo'sh yoki undefined bo'lsa qaytarish
+    if (!dto || dto.length === 0) return [];
+
+    // 2. Takroriy id tekshirish
+    const ids = dto.map((item) => item.modifier_id);
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length !== ids.length)
+      throw new BadRequestException('Takroriy modifierlar mavjud!');
+
+    // 3. Bazadan olish
+    const modifiers = await this.repository.find({
+      where: { id: In(uniqueIds) },
+    });
+
+    // 4. Mavjud bo'lmagan modifier tekshirish
+    if (modifiers.length !== uniqueIds.length) {
+      const foundIds = modifiers.map((m) => m.id);
+      const missingIds = uniqueIds.filter((id) => !foundIds.includes(id));
+      throw new NotFoundException(
+        `Quyidagi modifierlar topilmadi: ${missingIds.join(', ')}`,
+      );
+    }
+
+    // 5. Quantity qo'shish
+    return modifiers.map((modifier) => {
+      const found = dto.find((d) => d.modifier_id === modifier.id)!;
+      return { ...modifier, quantity: found.quantity };
+    });
   }
 }

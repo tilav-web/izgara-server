@@ -197,8 +197,12 @@ export class AliPosService extends AliPosBaseService {
     const TERMINAL_ID = this.configService.get<string>(
       'ALIPOS_PAYMENT_TERMINAL',
     ) as string;
-    const ONLINE_ID = this.configService.get<string>('ALIPOS_PAYMENT_ONLINE');
-    const COIN_ID = this.configService.get<string>('ALIPOS_PAYMENT_COIN');
+    const ONLINE_ID = this.configService.get<string>(
+      'ALIPOS_PAYMENT_ONLINE',
+    ) as string;
+    const COIN_ID = this.configService.get<string>(
+      'ALIPOS_PAYMENT_COIN',
+    ) as string;
 
     switch (order.payment_method) {
       case OrderPaymentMethodEnum.PAYMENT_CASH:
@@ -208,10 +212,10 @@ export class AliPosService extends AliPosBaseService {
         aliposPaymentId = TERMINAL_ID;
         break;
       case OrderPaymentMethodEnum.PAYMENT_ONLINE:
-        aliposPaymentId = ONLINE_ID || TERMINAL_ID; // Agar ONLINE_ID bo'lmasa TERMINAL_ID ishlatiladi
+        aliposPaymentId = ONLINE_ID;
         break;
       case OrderPaymentMethodEnum.PAYMENT_COIN:
-        aliposPaymentId = COIN_ID || TERMINAL_ID; // Coin uchun maxsus ID bo'lmasa Card ID yuboriladi
+        aliposPaymentId = COIN_ID;
         break;
       default:
         aliposPaymentId = CASH_ID;
@@ -249,7 +253,7 @@ export class AliPosService extends AliPosBaseService {
         id: item.product_id,
         quantity: Number(item.quantity),
         price: Number(item.price),
-        modifications: (item.modifiers || []).map((mod) => ({
+        modifications: (item.order_item_modifiers || []).map((mod) => ({
           id: mod.modifier_id,
           quantity: Number(mod.quantity || 1),
           price: Number(mod.price),
@@ -262,11 +266,12 @@ export class AliPosService extends AliPosBaseService {
         this.httpService.post('api/Integration/v1/order', payload),
       );
 
-      const data = response.data as { id: string };
+      const data = response.data as { id: string; orderNumber: string };
 
       if (data && data.id) {
         await this.orderRepository.update(order.id, {
           alipos_order_id: data.id,
+          order_number: data.orderNumber,
         });
       }
       console.log(response.data);
@@ -282,14 +287,7 @@ export class AliPosService extends AliPosBaseService {
     }
   }
 
-  // alipos.service.ts ichida
-
-  async updateOrderStatus(body: {
-    externalId: string;
-    status: string;
-    orderNumber?: string;
-    cancelReason?: string;
-  }) {
+  async updateOrderStatus(body: { externalId: string; status: string }) {
     const { externalId, status } = body;
 
     // 1. Buyurtmani bazadan qidirish
@@ -314,8 +312,11 @@ export class AliPosService extends AliPosBaseService {
         order.status = OrderStatusEnum.IN_PROGRESS; // yoki alohida SHIPPED statusi bo'lsa
         break;
       case 'DELIVERED':
-      case 'CLOSED':
         order.status = OrderStatusEnum.DELIVERED;
+        order.payment_status = PaymentStatusEnum.SUCCESS; // Yakuniy tasdiq
+        break;
+      case 'CLOSED':
+        order.status = OrderStatusEnum.CLOSED;
         order.payment_status = PaymentStatusEnum.SUCCESS; // Yakuniy tasdiq
         break;
       case 'CANCELLED':

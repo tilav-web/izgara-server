@@ -23,7 +23,6 @@ export class AliPosProcessor extends WorkerHost {
           await this.aliposService.sendOrderToAlipos(id);
           this.logger.log(`✅ Order ${id} successfully sent to AliPos`);
           break;
-
         default:
           throw new Error(`Unknown job name: ${name}`);
       }

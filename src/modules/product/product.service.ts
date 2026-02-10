@@ -183,20 +183,30 @@ export class ProductService {
   }
 
   async findByIds(dto: OrderProductDto[]) {
+    // 1. Takroriy id tekshirish
     const ids = dto.map((item) => item.product_id);
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length !== ids.length)
+      throw new BadRequestException('Takroriy productlar mavjud!');
 
+    // 2. Bazadan olish
     const products = await this.repository.find({
-      where: { id: In(ids) },
+      where: { id: In(uniqueIds) },
     });
 
-    const result = products.map((product) => {
-      const found = dto.find((d) => d.product_id === product.id);
-      return {
-        ...product,
-        quantity: found?.quantity ?? 1,
-      };
-    });
+    // 3. Mavjud bo'lmagan product tekshirish
+    if (products.length !== uniqueIds.length) {
+      const foundIds = products.map((p) => p.id);
+      const missingIds = uniqueIds.filter((id) => !foundIds.includes(id));
+      throw new NotFoundException(
+        `Quyidagi productlar topilmadi: ${missingIds.join(', ')}`,
+      );
+    }
 
-    return result;
+    // 4. Quantity qo'shish
+    return products.map((product) => {
+      const found = dto.find((d) => d.product_id === product.id)!;
+      return { ...product, quantity: found.quantity };
+    });
   }
 }

@@ -43,7 +43,7 @@ export class OrderItem {
   @OneToMany(() => OrderItemModifier, (mod) => mod.order_item, {
     cascade: true,
   })
-  modifiers: OrderItemModifier[];
+  order_item_modifiers: OrderItemModifier[];
 
   @UpdateDateColumn()
   updated_at: Date;

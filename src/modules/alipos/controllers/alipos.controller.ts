@@ -58,8 +58,6 @@ export class AliPosController {
     body: {
       externalId: string;
       status: string;
-      orderNumber?: string;
-      cancelReason?: string;
     },
   ) {
     return this.aliPosService.updateOrderStatus(body);
