@@ -19,7 +19,6 @@ import { LocationService } from '../../location/location.service';
 import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { DeliverySettingsService } from '../../deliverySettings/delivery-settings.service';
 import { PaymentProviderEnum } from '../../payment/enums/payment-provider.enum';
 import { PaymentTransaction } from '../../payment/payment-transaction.entity';
 import { generateClickUrl } from '../../../utils/generate-click-url';
@@ -45,7 +44,6 @@ export class OrderService {
     private readonly modifierService: ModifierService,
     private readonly coinSettingsService: CoinSettingsService,
     private readonly locationService: LocationService,
-    private readonly deliverySettingsService: DeliverySettingsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -61,25 +59,8 @@ export class OrderService {
       dto.modifiers,
     );
 
-    const deliverySettings = await this.deliverySettingsService.findSettings();
-
-    let deliveryPrice = 0;
-
-    if (deliverySettings) {
-      if (
-        deliverySettings.free_delivery_threshold <=
-        productsTotalPrices.total_price + modifiersTotalPrices.total_price
-      ) {
-        deliveryPrice = 0;
-      } else {
-        deliveryPrice = deliverySettings.delivery_price;
-      }
-    }
-
     const total_price =
-      productsTotalPrices.total_price +
-      modifiersTotalPrices.total_price +
-      deliveryPrice;
+      productsTotalPrices.total_price + modifiersTotalPrices.total_price;
 
     return { total_price, user };
   }

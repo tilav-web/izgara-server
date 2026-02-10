@@ -55,7 +55,7 @@ export class ProductService {
     const total_price = products.reduce((acc, item) => {
       const quantity = quantityMap.get(item.id);
       if (!quantity) return acc;
-      return acc + item.price * quantity;
+      return acc + Number(item.price) * quantity;
     }, 0);
 
     return { total_price };
