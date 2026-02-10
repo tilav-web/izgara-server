@@ -20,8 +20,6 @@ export class AliPosBaseService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Server yoqilganda ulanishni boshlaymiz
-    // 10 marta urinish, har safar oraliq vaqt ortib boradi
     await this.initConnectionWithRetry(10);
   }
 
@@ -60,9 +58,6 @@ export class AliPosBaseService implements OnModuleInit {
     }
   }
 
-  /**
-   * OAuth2 Token olish/yangilash
-   */
   private async refreshAccessToken() {
     const url = '/security/oauth/token';
     const client_id = this.configService.get<string>('ALIPOS_CLIENT_ID');
@@ -106,9 +101,6 @@ export class AliPosBaseService implements OnModuleInit {
     }
   }
 
-  /**
-   * Restoran ID sini yuklash
-   */
   private async loadRestaurantId() {
     try {
       const response = await firstValueFrom(
@@ -135,9 +127,6 @@ export class AliPosBaseService implements OnModuleInit {
     }
   }
 
-  /**
-   * Axios Interceptor-lar: 401 (token) va 5xx (server) xatolarini ushlash uchun
-   */
   private setupInterceptors() {
     // Avvalgi interceptorlarni tozalash (duplicate bo'lmasligi uchun)
     this.httpService.axiosRef.interceptors.response.handlers = [];

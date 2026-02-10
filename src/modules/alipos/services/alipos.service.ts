@@ -182,7 +182,12 @@ export class AliPosService extends AliPosBaseService {
   async sendOrderToAlipos(order_id: string) {
     const order = await this.orderRepository.findOne({
       where: { id: order_id },
-      relations: ['items', 'items.modifiers'],
+      relations: {
+        items: {
+          product: true,
+          order_item_modifiers: true,
+        },
+      },
     });
 
     if (!order) throw new NotFoundException('Order topilmadi!');
