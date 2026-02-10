@@ -281,7 +281,12 @@ export class AliPosService extends AliPosBaseService {
     try {
       await firstValueFrom(
         this.httpService.post('api/Integration/v1/order', payload),
-      );
+      ).then((response) => {
+        console.log(response.data);
+        console.log(
+          '*********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************',
+        );
+      });
     } catch (error) {
       const axiosError = error as AxiosError;
       console.error(
