@@ -256,9 +256,10 @@ export class AliPosService extends AliPosBaseService {
         itemsCost: Number(order.total_price),
         total: Number(order.total_price),
         deliveryFee:
-          Number(order.total_price) > deliverySettings.free_delivery_threshold
+          Number(order.total_price) >
+          Number(deliverySettings.free_delivery_threshold)
             ? 0
-            : deliverySettings.delivery_price,
+            : Number(deliverySettings.delivery_price),
       },
       items: order.items.map((item) => ({
         id: item.product_id,
