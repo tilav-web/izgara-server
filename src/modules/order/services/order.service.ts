@@ -89,10 +89,13 @@ export class OrderService {
       'send-order-to-alipos',
       { order_id },
       {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
+        attempts: 5, // Qayta urinishlar sonini biroz oshirish mumkin
+        backoff: {
+          type: 'exponential',
+          delay: 10000, // 10 soniyadan boshlab har safar 2 barobar ko'payadi (10s, 20s, 40s...)
+        },
         removeOnComplete: true,
-        removeOnFail: false,
+        removeOnFail: { age: 24 * 3600 }, // Xato bo'lganlarni bazada 24 soat saqlash (tahlil uchun)
       },
     );
   }
