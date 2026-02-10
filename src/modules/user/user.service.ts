@@ -71,6 +71,26 @@ export class UserService {
     return this.repository.findOne({ where: { id } });
   }
 
+  async findByIdForAdmin(id: number) {
+    return this.repository.findOne({
+      where: {
+        id,
+      },
+      relations: {
+        orders: {
+          items: {
+            modifiers: {
+              modifier: true,
+            },
+            product: true,
+          },
+          transactions: true,
+          location: true,
+        },
+      },
+    });
+  }
+
   async findByAuthId(id: number) {
     const cacheUser = await this.userRedisService.getUserDetails(id);
     if (cacheUser) return cacheUser;

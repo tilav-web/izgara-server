@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { OrderItemModifier } from './order-item-modifier.entity';
 import { Order } from './order.entity';
+import { Product } from '../../product/product.entity';
 
 @Entity('order_items')
 export class OrderItem {
@@ -22,6 +23,10 @@ export class OrderItem {
   @ManyToOne(() => Order, (order) => order.items)
   @JoinColumn({ name: 'order_id' })
   order: Order;
+
+  @ManyToOne(() => Product)
+  @JoinColumn({ name: 'product_id' })
+  product: Product;
 
   @Column()
   product_id: string; // AliPos mahsulot ID'si

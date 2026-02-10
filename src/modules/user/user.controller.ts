@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Patch,
   Query,
   Req,
@@ -24,6 +25,14 @@ import { AuthStatusGuard } from '../auth/guard/status.guard';
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
+
+  @Get('/find-one/:id')
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
+  @Roles(AuthRoleEnum.SUPERADMIN)
+  @ApiBearerAuth('access_token')
+  async findByIdForAdmin(@Param('id') id: number) {
+    return this.userService.findByIdForAdmin(id);
+  }
 
   @Get('/')
   @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)

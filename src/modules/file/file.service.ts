@@ -3,6 +3,7 @@ import { join } from 'path';
 import { FileFolderEnum } from './enums/file-folder.enum';
 import { existsSync, mkdirSync } from 'fs';
 import { writeFile, unlink } from 'fs/promises';
+import sharp from 'sharp';
 
 @Injectable()
 export class FileService {
@@ -32,11 +33,20 @@ export class FileService {
 
     const timestamp = Date.now();
     const random = Math.round(Math.random() * 1e9);
-    const extension = file.originalname.split('.').pop();
-    const filename = `${timestamp}-${random}.${extension}`;
 
+    // HAR DOIM webp
+    const filename = `${timestamp}-${random}.webp`;
     const filePath = join(folderPath, filename);
-    await writeFile(filePath, file.buffer);
+
+    // sharp orqali webp ga o‘tkazamiz
+    const webpBuffer = await sharp(file.buffer)
+      .webp({
+        quality: 80,
+        effort: 6,
+      })
+      .toBuffer();
+
+    await writeFile(filePath, webpBuffer);
 
     return `${this.serverUrl}/uploads/${folder}/${filename}`;
   }
