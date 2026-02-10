@@ -11,6 +11,7 @@ import { AuthModule } from '../auth/auth.module';
 import { Modifier } from '../modifier/modifier.entity';
 import { OrderModule } from '../order/order.module';
 import { Order } from '../order/schemas/order.entity';
+import { DeliverySettingsModule } from '../deliverySettings/delivery-settings.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { Order } from '../order/schemas/order.entity';
     ProductModule,
     AuthModule,
     OrderModule,
+    DeliverySettingsModule,
   ],
   controllers: [AliPosController],
   providers: [AliPosBaseService, AliPosService],
