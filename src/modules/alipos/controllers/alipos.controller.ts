@@ -56,8 +56,10 @@ export class AliPosController {
   async webHookOrderStatus(
     @Body()
     body: {
-      externalId: string;
+      id?: string;
+      eatsId: string;
       status: string;
+      orderNumber?: string;
     },
   ) {
     return this.aliPosService.updateOrderStatus(body);

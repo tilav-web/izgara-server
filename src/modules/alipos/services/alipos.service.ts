@@ -21,7 +21,6 @@ import { Order } from '../../order/schemas/order.entity';
 import { OrderPaymentMethodEnum } from '../../order/enums/order-payment-status.enum';
 import { OrderTypeEnum } from '../../order/enums/order-type.enum';
 import { OrderStatusEnum } from '../../order/enums/order-status.enum';
-import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
 
 interface AlipostApiResponse {
   categories: {
@@ -229,8 +228,8 @@ export class AliPosService extends AliPosBaseService {
       eatsId: order.id,
       restaurantId: this.restaurantId,
       comment: order.address
-        ? 'TEST QILINMOQDA' + order.address
-        : 'TEST QILINMOQDA',
+        ? 'TEST QILINMOQDA TAYYORLANMASIN' + order.address
+        : 'TEST QILINMOQDA TAYYORLANMASIN',
       deliveryInfo: {
         clientName: 'Mijoz',
         phoneNumber: order.customer_phone,
@@ -262,19 +261,9 @@ export class AliPosService extends AliPosBaseService {
     };
 
     try {
-      const response = await firstValueFrom(
+      await firstValueFrom(
         this.httpService.post('api/Integration/v1/order', payload),
       );
-
-      const data = response.data as { id: string; orderNumber: string };
-
-      if (data && data.id) {
-        await this.orderRepository.update(order.id, {
-          alipos_order_id: data.id,
-          order_number: data.orderNumber,
-        });
-      }
-      console.log(response.data);
     } catch (error) {
       const axiosError = error as AxiosError;
       console.error(
@@ -287,37 +276,43 @@ export class AliPosService extends AliPosBaseService {
     }
   }
 
-  async updateOrderStatus(body: { externalId: string; status: string }) {
-    const { externalId, status } = body;
+  async updateOrderStatus(body: {
+    eatsId: string;
+    status: string;
+    orderNumber?: string;
+    id?: string;
+  }) {
+    const { eatsId, status } = body;
 
     // 1. Buyurtmani bazadan qidirish
     const order = await this.orderRepository.findOne({
-      where: { id: externalId },
+      where: { id: eatsId },
     });
 
     if (!order) {
-      throw new NotFoundException(`Order with ID ${externalId} not found`);
+      throw new NotFoundException(`Order with ID ${eatsId} not found`);
     }
 
     // 2. AliPos statuslarini o'zingizning OrderStatusEnum-ga map qilish
     // AliPos statuslari: NEW, IN_PROGRESS, READY_FOR_PICKUP, ON_WAY, DELIVERED, CANCELLED
     switch (status) {
-      case 'IN_PROGRESS':
-        order.status = OrderStatusEnum.IN_PROGRESS;
+      case 'NEW':
+        order.status = OrderStatusEnum.NEW;
         break;
-      case 'READY_FOR_PICKUP':
+      case 'ACCEPTED_BY_RESTAURANT':
+        order.status = OrderStatusEnum.IN_PROGRESS;
+        if (body.orderNumber) {
+          order.order_number = body.orderNumber;
+        }
+        if (body.id) {
+          order.alipos_order_id = body.id;
+        }
+        break;
+      case 'READY':
         order.status = OrderStatusEnum.READY;
         break;
-      case 'ON_WAY':
-        order.status = OrderStatusEnum.IN_PROGRESS; // yoki alohida SHIPPED statusi bo'lsa
-        break;
-      case 'DELIVERED':
-        order.status = OrderStatusEnum.DELIVERED;
-        order.payment_status = PaymentStatusEnum.SUCCESS; // Yakuniy tasdiq
-        break;
-      case 'CLOSED':
-        order.status = OrderStatusEnum.CLOSED;
-        order.payment_status = PaymentStatusEnum.SUCCESS; // Yakuniy tasdiq
+      case 'TAKEN_BY_COURIER':
+        order.status = OrderStatusEnum.ON_WAY;
         break;
       case 'CANCELLED':
         order.status = OrderStatusEnum.CANCELLED;
