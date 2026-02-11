@@ -7,7 +7,7 @@ import {
   ValidateNested,
   IsArray,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { OrderPaymentMethodEnum } from '../enums/order-payment-status.enum';
 import { OrderTypeEnum } from '../enums/order-type.enum';
 import { OrderProductDto } from './order-product.dto';
@@ -49,6 +49,9 @@ export class CreateOrderDto {
   })
   @IsOptional()
   @IsUUID()
+  @Transform(({ value }: { value: string }) =>
+    value === '' ? undefined : value,
+  )
   location_id?: string;
 
   // --- products ---
