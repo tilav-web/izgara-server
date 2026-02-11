@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Patch,
   Post,
   Query,
   Req,
@@ -17,6 +18,7 @@ import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
 import { AuthRoleGuard } from '../../auth/guard/role.guard';
 import { FilterOrderDto } from '../dto/filter-order.dto';
 import { AuthStatusGuard } from '../../auth/guard/status.guard';
+import { UpdateOrderDto } from '../dto/update-order.dto';
 
 @Controller('orders')
 export class OrdersController {
@@ -47,5 +49,16 @@ export class OrdersController {
   ) {
     const auth = req.user as { id: number };
     return this.orderService.findOrdersByAuthId(auth.id, { page, limit });
+  }
+
+  @Patch('/update/:id')
+  @Roles(AuthRoleEnum.SUPERADMIN)
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
+  @ApiBearerAuth('access_token')
+  async updateOrderForAdmin(
+    @Body() dto: UpdateOrderDto,
+    @Query('id') order_id: string,
+  ) {
+    return this.orderService.updateOrderForAdmin(order_id, dto);
   }
 }

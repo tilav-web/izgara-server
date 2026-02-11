@@ -29,6 +29,7 @@ import { Product } from '../../product/product.entity';
 import { Modifier } from '../../modifier/modifier.entity';
 import { UpdateOrderDto } from '../dto/update-order.dto';
 import { DeliverySettingsService } from '../../deliverySettings/delivery-settings.service';
+import { OrderStatusEnum } from '../enums/order-status.enum';
 
 type ProductWithQuantity = Product & { quantity: number };
 type ModifierWithQuantity = Modifier & { quantity: number };
@@ -87,7 +88,23 @@ export class OrderService {
   private async sendToAlipos(order_id: string) {
     await this.aliposQueue.add(
       'send-order-to-alipos',
-      { order_id },
+      { id: order_id },
+      {
+        attempts: 5, // Qayta urinishlar sonini biroz oshirish mumkin
+        backoff: {
+          type: 'exponential',
+          delay: 10000, // 10 soniyadan boshlab har safar 2 barobar ko'payadi (10s, 20s, 40s...)
+        },
+        removeOnComplete: true,
+        removeOnFail: { age: 24 * 3600 }, // Xato bo'lganlarni bazada 24 soat saqlash (tahlil uchun)
+      },
+    );
+  }
+
+  private async deleteToAlipos(order_id: string) {
+    await this.aliposQueue.add(
+      'delete-order-to-alipos',
+      { id: order_id },
       {
         attempts: 5, // Qayta urinishlar sonini biroz oshirish mumkin
         backoff: {
@@ -246,7 +263,7 @@ export class OrderService {
       await this.aliposQueue.add(
         'send-order-to-alipos',
         {
-          order_id: order.id,
+          id: order.id,
         },
         {
           attempts: 3,
@@ -536,6 +553,18 @@ export class OrderService {
 
     if (!order) throw new NotFoundException('Buyurtma malumotlari topilmadi!');
 
-    // ************************************************************************************************************************************************************************************************************************
+    if (dto.status) {
+      order.status = dto.status;
+      if (dto.status === OrderStatusEnum.CANCELLED) {
+        await this.deleteToAlipos(order.id);
+      }
+    }
+
+    if (dto.payment_status) {
+      order.payment_status = dto.payment_status;
+    }
+
+    const result = await this.orderRepository.save(order);
+    return result;
   }
 }

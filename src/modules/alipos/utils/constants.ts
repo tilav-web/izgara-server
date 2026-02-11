@@ -11,4 +11,9 @@ export const ALIPOST_API_ENDPOINTS = {
     findAll: (restaurantId: string) =>
       `api/Integration/v1/menu/${restaurantId}/composition`,
   },
+  ORDER: {
+    sendToAlipos: 'api/Integration/v1/order',
+    deleteOrder: (alipos_order_id: string) =>
+      `api/Integration/v1/order/${alipos_order_id}`,
+  },
 };

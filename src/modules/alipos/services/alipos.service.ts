@@ -276,7 +276,7 @@ export class AliPosService extends AliPosBaseService {
 
       // await this.orderRepository.save({
       //   ...order,
-      //   order_number: data.orderId,
+      //   alipos_order_id: data.orderId,
       //   status: OrderStatusEnum.IN_PROGRESS,
       // });
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -336,5 +336,27 @@ export class AliPosService extends AliPosBaseService {
     await this.orderRepository.save(order);
 
     return { success: true, newStatus: order.status };
+  }
+
+  async deleteOrderToAlipos(order_id: string) {
+    const order = await this.orderRepository.findOne({
+      where: { id: order_id },
+    });
+
+    if (!order) throw new NotFoundException('Order topilmadi!');
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.delete(
+          `${ALIPOST_API_ENDPOINTS.ORDER.deleteOrder(order.alipos_order_id)}`,
+        ),
+      );
+      console.log(response.data);
+    } catch (error) {
+      console.error(error);
+      throw new BadGatewayException(
+        "AliPos-ga order o'chirish so'rovida xatolik yuz berdi",
+      );
+    }
   }
 }
