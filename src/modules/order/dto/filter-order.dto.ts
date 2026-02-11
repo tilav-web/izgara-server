@@ -3,8 +3,8 @@ import {
   IsEnum,
   IsNumber,
   IsOptional,
-  IsString,
   IsDateString,
+  IsString,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
@@ -12,19 +12,15 @@ import { OrderStatusEnum } from '../enums/order-status.enum';
 import { OrderPaymentMethodEnum } from '../enums/order-payment-status.enum';
 import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
 import { OrderTypeEnum } from '../enums/order-type.enum';
-import { SortOrderEnum } from '../../../enums/sort-order.enum';
 
 export class FilterOrderDto {
-  @ApiPropertyOptional({ example: 12, description: 'User ID' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  user_id?: number;
-
-  @ApiPropertyOptional({ example: '#542' })
+  @ApiPropertyOptional({
+    example: '998901234567',
+    description: 'Search by phone, customer name or other string fields',
+  })
   @IsOptional()
   @IsString()
-  order_number?: string;
+  search?: string;
 
   @ApiPropertyOptional({
     enum: OrderStatusEnum,
@@ -70,25 +66,6 @@ export class FilterOrderDto {
   )
   payment_status?: PaymentStatusEnum;
 
-  @ApiPropertyOptional({ example: '+998901234567' })
-  @IsOptional()
-  @IsString()
-  customer_phone?: string;
-
-  @ApiPropertyOptional({ example: 10000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  min_total_price?: number;
-
-  @ApiPropertyOptional({ example: 100000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  max_total_price?: number;
-
-  // ===== DATE FILTER =====
-
   @ApiPropertyOptional({
     example: '2024-01-01',
     description: 'created_at >= from_date',
@@ -105,8 +82,6 @@ export class FilterOrderDto {
   @IsDateString()
   to_date?: string;
 
-  // ===== PAGINATION =====
-
   @ApiPropertyOptional({ example: 1, default: 1 })
   @IsOptional()
   @Type(() => Number)
@@ -118,17 +93,4 @@ export class FilterOrderDto {
   @Type(() => Number)
   @IsNumber()
   limit?: number = 10;
-
-  // ===== SORT =====
-  @ApiPropertyOptional({
-    example: SortOrderEnum.DESC,
-    description: 'Sort order',
-    enum: SortOrderEnum,
-  })
-  @IsOptional()
-  @Transform(({ value }: { value: SortOrderEnum | '' }) =>
-    value === '' ? undefined : value,
-  )
-  @IsEnum(SortOrderEnum)
-  sort_order?: SortOrderEnum = SortOrderEnum.DESC;
 }

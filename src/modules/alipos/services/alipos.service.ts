@@ -21,7 +21,6 @@ import { Order } from '../../order/schemas/order.entity';
 import { OrderPaymentMethodEnum } from '../../order/enums/order-payment-status.enum';
 import { OrderTypeEnum } from '../../order/enums/order-type.enum';
 import { OrderStatusEnum } from '../../order/enums/order-status.enum';
-import { DeliverySettingsService } from '../../deliverySettings/delivery-settings.service';
 
 interface AlipostApiResponse {
   categories: {
@@ -69,7 +68,6 @@ export class AliPosService extends AliPosBaseService {
     private readonly modifierRepository: Repository<Modifier>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-    private readonly deliverySettingsService: DeliverySettingsService,
   ) {
     super(httpService, configService);
   }
@@ -194,8 +192,6 @@ export class AliPosService extends AliPosBaseService {
 
     if (!order) throw new NotFoundException('Order topilmadi!');
 
-    const deliverySettings = await this.deliverySettingsService.findSettings();
-
     // 1. To'lov ID-larini ConfigService orqali .env dan olish
     let aliposPaymentId: string;
 
@@ -254,18 +250,9 @@ export class AliPosService extends AliPosBaseService {
       },
       paymentInfo: {
         paymentId: aliposPaymentId,
-        itemsCost: Number(order.total_price),
-        total:
-          Number(order.total_price) >
-          Number(deliverySettings.free_delivery_threshold)
-            ? Number(order.total_price)
-            : Number(deliverySettings.delivery_price) +
-              Number(order.total_price),
-        deliveryFee:
-          Number(order.total_price) >
-          Number(deliverySettings.free_delivery_threshold)
-            ? 0
-            : Number(deliverySettings.delivery_price),
+        itemsCost: Number(order.items_price),
+        total: Number(order.total_price),
+        deliveryFee: Number(order.delivery_fee),
       },
       items: order.items.map((item) => ({
         id: item.product_id,

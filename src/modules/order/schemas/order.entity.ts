@@ -47,6 +47,12 @@ export class Order {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   total_price: number; // Buyurtmaning umumiy summasi (coinlar ayirilmasdan oldingi yoki keyingi)
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  items_price: number; // Buyurtmadagi mahsulotlar va modifierlarning umumiy narxi (delivery fee va coinlar ayirilmasdan)
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  delivery_fee: number; // Yetkazib berish xizmati uchun to'lov
+
   @Column({ type: 'enum', enum: OrderStatusEnum, default: OrderStatusEnum.NEW })
   status: OrderStatusEnum; // NEW, IN_PROGRESS, READY, DELIVERED, CANCELLED
 

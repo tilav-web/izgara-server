@@ -2,10 +2,11 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from '../schemas/order.entity';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { UserService } from '../../user/user.service';
 import { ProductService } from '../../product/product.service';
@@ -26,6 +27,8 @@ import { FilterOrderDto } from '../dto/filter-order.dto';
 import { DataSource } from 'typeorm';
 import { Product } from '../../product/product.entity';
 import { Modifier } from '../../modifier/modifier.entity';
+import { UpdateOrderDto } from '../dto/update-order.dto';
+import { DeliverySettingsService } from '../../deliverySettings/delivery-settings.service';
 
 type ProductWithQuantity = Product & { quantity: number };
 type ModifierWithQuantity = Modifier & { quantity: number };
@@ -45,6 +48,7 @@ export class OrderService {
     private readonly coinSettingsService: CoinSettingsService,
     private readonly locationService: LocationService,
     private readonly dataSource: DataSource,
+    private readonly deliverySettingsService: DeliverySettingsService,
   ) {}
 
   private async makeOrderTotalPrice(auth_id: number, dto: CreateOrderDto) {
@@ -59,10 +63,25 @@ export class OrderService {
       dto.modifiers,
     );
 
-    const total_price =
+    const deliverySettings = await this.deliverySettingsService.findSettings();
+
+    const items_price =
       productsTotalPrices.total_price + modifiersTotalPrices.total_price;
 
-    return { total_price, user };
+    let delivery_fee: number = 0;
+
+    if (items_price < deliverySettings.free_delivery_threshold) {
+      delivery_fee = Number(deliverySettings.delivery_price);
+    }
+
+    const total_price = items_price + delivery_fee;
+
+    return {
+      total_price,
+      items_price,
+      user,
+      delivery_fee,
+    };
   }
 
   private async sendToAlipos(order_id: string) {
@@ -106,18 +125,18 @@ export class OrderService {
       .leftJoinAndSelect('order.user', 'user')
       .leftJoinAndSelect('order.transactions', 'transactions');
 
-    // ===== BASIC FILTERS =====
-
-    if (filter.user_id) {
-      qb.andWhere('order.user_id = :user_id', {
-        user_id: filter.user_id,
-      });
-    }
-
-    if (filter.order_number) {
-      qb.andWhere('order.order_number ILIKE :order_number', {
-        order_number: `%${filter.order_number}%`,
-      });
+    if (filter.search) {
+      qb.andWhere(
+        new Brackets((qb) => {
+          qb.where(`
+        user.first_name ILIKE :search
+        OR user.last_name ILIKE :search
+        OR order.customer_phone ILIKE :search
+        OR order.order_number ILIKE :search
+        OR order.address ILIKE :search
+      `);
+        }),
+      ).setParameter('search', `%${filter.search}%`);
     }
 
     if (filter.status) {
@@ -144,28 +163,6 @@ export class OrderService {
       });
     }
 
-    if (filter.customer_phone) {
-      qb.andWhere('order.customer_phone ILIKE :phone', {
-        phone: `%${filter.customer_phone}%`,
-      });
-    }
-
-    // ===== PRICE FILTER =====
-
-    if (filter.min_total_price) {
-      qb.andWhere('order.total_price >= :min_price', {
-        min_price: filter.min_total_price,
-      });
-    }
-
-    if (filter.max_total_price) {
-      qb.andWhere('order.total_price <= :max_price', {
-        max_price: filter.max_total_price,
-      });
-    }
-
-    // ===== DATE FILTER =====
-
     if (filter.from_date) {
       qb.andWhere('order.created_at >= :from_date', {
         from_date: filter.from_date,
@@ -178,14 +175,10 @@ export class OrderService {
       });
     }
 
-    // ===== PAGINATION =====
-
     const page = filter.page ?? 1;
     const limit = filter.limit ?? 10;
 
     qb.skip((page - 1) * limit).take(limit);
-
-    // ===== EXECUTE =====
 
     const [orders, total] = await qb.getManyAndCount();
 
@@ -272,7 +265,8 @@ export class OrderService {
   }
 
   async createOrder(auth_id: number, dto: CreateOrderDto) {
-    const { total_price, user } = await this.makeOrderTotalPrice(auth_id, dto);
+    const { total_price, user, delivery_fee, items_price } =
+      await this.makeOrderTotalPrice(auth_id, dto);
 
     const products = await this.productService.findByIds(dto.products);
     const modifiers = await this.modifierService.findByIds(dto.modifiers);
@@ -324,6 +318,8 @@ export class OrderService {
             user_id: user.id,
             used_coins: totalCoin.coin_price,
             total_price,
+            delivery_fee,
+            items_price,
             customer_phone: user.phone,
             lat: location.latitude,
             lng: location.longitude,
@@ -351,6 +347,8 @@ export class OrderService {
           user_id: user.id,
           cash_amount: total_price,
           total_price,
+          items_price,
+          delivery_fee,
           customer_phone: user.phone,
           lat: location.latitude,
           lng: location.longitude,
@@ -372,6 +370,8 @@ export class OrderService {
           user_id: user.id,
           cash_amount: total_price,
           total_price,
+          items_price,
+          delivery_fee,
           customer_phone: user.phone,
           lat: location.latitude,
           lng: location.longitude,
@@ -431,6 +431,8 @@ export class OrderService {
             user_id: user.id,
             used_coins: totalCoin.coin_price,
             total_price,
+            items_price,
+            delivery_fee,
             customer_phone: user.phone,
             payment_status: PaymentStatusEnum.SUCCESS,
             items: this.buildItems(products, modifiers),
@@ -455,6 +457,8 @@ export class OrderService {
           user_id: user.id,
           cash_amount: total_price,
           total_price,
+          items_price,
+          delivery_fee,
           customer_phone: user.phone,
           items: this.buildItems(products, modifiers),
         });
@@ -473,6 +477,8 @@ export class OrderService {
           user_id: user.id,
           cash_amount: total_price,
           total_price,
+          items_price,
+          delivery_fee,
           customer_phone: user.phone,
           items: this.buildItems(products, modifiers),
         });
@@ -507,6 +513,8 @@ export class OrderService {
           user_id: user.id,
           cash_amount: total_price,
           total_price,
+          items_price,
+          delivery_fee,
           customer_phone: user.phone,
           items: this.buildItems(products, modifiers),
         });
@@ -519,5 +527,15 @@ export class OrderService {
     throw new BadRequestException("Noma'lum order turi!");
   }
 
-  async updateOrderForAdmin(order_id: string) {}
+  async updateOrderForAdmin(order_id: string, dto: UpdateOrderDto) {
+    const order = await this.orderRepository.findOne({
+      where: {
+        id: order_id,
+      },
+    });
+
+    if (!order) throw new NotFoundException('Buyurtma malumotlari topilmadi!');
+
+    // ************************************************************************************************************************************************************************************************************************
+  }
 }
