@@ -312,7 +312,7 @@ export class OrderService {
           product_price: total_price,
         });
 
-        if (user.coin_balance < totalCoin.coin_price)
+        if (user.coin_balance < Number(totalCoin.coin_price))
           throw new ForbiddenException('Sizda yetarli coin yoq!');
 
         // order va aliposQueue natijasini tashqarida saqlash
@@ -333,7 +333,7 @@ export class OrderService {
             address: dto.address,
             location_id: location.id,
             user_id: user.id,
-            used_coins: totalCoin.coin_price,
+            used_coins: Number(totalCoin.coin_price),
             total_price,
             delivery_fee,
             items_price,
@@ -426,7 +426,7 @@ export class OrderService {
           product_price: total_price,
         });
 
-        if (user.coin_balance < totalCoin.coin_price)
+        if (user.coin_balance < Number(totalCoin.coin_price))
           throw new ForbiddenException('Sizda yetarli coin yoq!');
 
         // order va aliposQueue natijasini tashqarida saqlash
@@ -446,7 +446,7 @@ export class OrderService {
             payment_method: OrderPaymentMethodEnum.PAYMENT_COIN,
             address: dto.address,
             user_id: user.id,
-            used_coins: totalCoin.coin_price,
+            used_coins: Number(totalCoin.coin_price),
             total_price,
             items_price,
             delivery_fee,
