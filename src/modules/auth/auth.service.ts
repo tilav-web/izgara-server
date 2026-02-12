@@ -20,6 +20,7 @@ import { UserRedisService } from '../redis/user-redis.service';
 import { UpdateUserAuthDto } from './dto/update-user-auth.dto';
 import { AuthStatusEnum } from './enums/status.enum';
 import { User } from '../user/user.entity';
+import { JwtTypeEnum } from './enums/jwt-type.enum';
 
 @Injectable()
 export class AuthService {
@@ -32,6 +33,32 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
   ) {}
+
+  private generateJwt({ id, role }: { id: number; role: AuthRoleEnum }) {
+    const access_token = this.jwtService.sign(
+      {
+        id,
+        role,
+        type: JwtTypeEnum.ACCESS,
+      },
+      {
+        expiresIn: '15m',
+      },
+    );
+
+    const refresh_token = this.jwtService.sign(
+      {
+        id,
+        role,
+        type: JwtTypeEnum.REFRESH,
+      },
+      {
+        expiresIn: '7d',
+      },
+    );
+
+    return { access_token, refresh_token };
+  }
 
   async findById(id: number): Promise<Auth | null> {
     const authCache = await this.authRedisService.getAuthDetails({ id });
@@ -109,25 +136,11 @@ export class AuthService {
 
       if (!isMatch) throw new BadRequestException('Parolda xatolik bor!');
 
-      const access_token = this.jwtService.sign(
-        {
-          id: auth.id,
-          role: auth.role,
-        },
-        {
-          expiresIn: '15m',
-        },
-      );
+      const { refresh_token, access_token } = this.generateJwt({
+        id: auth.id,
+        role: auth.role,
+      });
 
-      const refresh_token = this.jwtService.sign(
-        {
-          id: auth.id,
-          role: auth.role,
-        },
-        {
-          expiresIn: '7d',
-        },
-      );
       const user = await this.userService.findByAuthId(auth.id);
       return {
         access_token,
@@ -185,42 +198,41 @@ export class AuthService {
       await this.userRedisService.setUserDetails({ user, auth_id: auth.id });
     }
 
-    const access_token = this.jwtService.sign(
-      {
-        id: auth.id,
-        role: auth.role,
-      },
-      {
-        expiresIn: '15m',
-      },
-    );
-
-    const refresh_token = this.jwtService.sign(
-      {
-        id: auth.id,
-        role: auth.role,
-      },
-      {
-        expiresIn: '7d',
-      },
-    );
+    const { refresh_token, access_token } = this.generateJwt({
+      id: auth.id,
+      role: auth.role,
+    });
     const user = await this.userService.findByAuthId(auth.id);
 
     return { access_token, refresh_token, user };
   }
 
-  async refreshToken(refresh_token: string) {
+  async refreshToken(refreshToken: string) {
     const payload = await this.jwtService.verifyAsync<{
       id: number;
       role: AuthRoleEnum;
-    }>(refresh_token);
+      type: JwtTypeEnum;
+    }>(refreshToken);
 
-    const access_token = this.jwtService.sign({
-      id: payload.id,
-      role: payload.role,
+    const auth = await this.findById(payload.id);
+
+    if (!auth)
+      throw new NotFoundException('Foydalanuvchi malumotlari topilmadi!');
+
+    if (auth.status === AuthStatusEnum.BLOCK)
+      throw new BadRequestException(
+        'Foydalanuvchi bloklangan adminga aloqaga chiqing!',
+      );
+
+    if (payload.type !== JwtTypeEnum.REFRESH)
+      throw new BadRequestException('REFRESH_TOKEN-da xatolik bor');
+
+    const { refresh_token, access_token } = this.generateJwt({
+      id: auth.id,
+      role: auth.role,
     });
 
-    return { access_token };
+    return { access_token, refresh_token };
   }
 
   async updateForAdmin({

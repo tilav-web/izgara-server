@@ -14,7 +14,6 @@ export class ClickService {
     @InjectRepository(PaymentTransaction)
     private readonly paymentTransactionRepository: Repository<PaymentTransaction>,
     @InjectRepository(Order)
-    private readonly orderRepository: Repository<Order>,
     private readonly orderService: OrderService,
   ) {}
 

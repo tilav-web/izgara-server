@@ -1,14 +1,10 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
-import { OrderService } from '../../order/services/order.service';
 import { ClickWebhookDto } from '../dto/click-webhook.dto';
 import { ClickService } from '../services/click.service';
 
 @Controller('click')
 export class ClickController {
-  constructor(
-    private readonly orderService: OrderService,
-    private readonly clickService: ClickService,
-  ) {}
+  constructor(private readonly clickService: ClickService) {}
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)

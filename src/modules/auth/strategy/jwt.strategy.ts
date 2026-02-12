@@ -8,6 +8,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthService } from '../auth.service';
 import { ConfigService } from '@nestjs/config';
 import { AuthRoleEnum } from '../enums/auth-role.enum';
+import { JwtTypeEnum } from '../enums/jwt-type.enum';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -27,7 +28,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  async validate(payload: { id: number }) {
+  async validate(payload: {
+    id: number;
+    role: AuthRoleEnum;
+    type: JwtTypeEnum.ACCESS;
+  }) {
+    if (payload.type !== JwtTypeEnum.ACCESS)
+      throw new UnauthorizedException('Token malumotlarida xatolik bor!');
+
     if (!payload.id) {
       throw new UnauthorizedException('Foydalanuvchi id si topilmadi');
     }
@@ -35,6 +43,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!auth) {
       throw new UnauthorizedException('Foydalanuvchi malumotlari topilmadi!');
     }
-    return auth as { id: number; role: AuthRoleEnum };
+    return payload;
   }
 }

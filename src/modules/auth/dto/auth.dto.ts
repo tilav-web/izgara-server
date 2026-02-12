@@ -1,11 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class AuthDto {
   @ApiProperty({
     example: '+998991234567',
     description: 'Telefon raqam kiriting!',
   })
+  @IsString()
   @IsNotEmpty()
   phone: string;
 
@@ -14,6 +15,7 @@ export class AuthDto {
     description: "Password majburiy emas lekin admin bo'lsangiz majburiy",
     required: false,
   })
+  @IsString()
   @IsOptional()
   password?: string;
 }

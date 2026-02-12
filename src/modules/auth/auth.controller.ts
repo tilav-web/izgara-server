@@ -111,6 +111,7 @@ export class AuthController {
   @Post('/refresh-token')
   async refreshToken(
     @Req() req: Request & { cookies: { refresh_token?: string } },
+    @Res({ passthrough: true }) res: Response,
     @Body() body: RefreshDto,
   ) {
     const origin = (req.headers['origin'] as string) ?? 'Mavjut emas';
@@ -120,19 +121,29 @@ export class AuthController {
     const isWeb = !!origin && allowedOrigins.includes(origin);
 
     if (isWeb) {
-      const refresh_token = req.cookies['refresh_token'];
-      if (!refresh_token)
+      const refreshToken = req.cookies['refresh_token'];
+      if (!refreshToken)
         throw new UnauthorizedException('Refresh eskirgan qayta login qiling!');
-      const access_token = await this.authService.refreshToken(refresh_token);
-      return access_token;
+
+      const { access_token, refresh_token } =
+        await this.authService.refreshToken(refreshToken);
+
+      res.cookie('refresh_token', refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      });
+      return { access_token };
     }
 
-    const refresh_token = body.refresh_token;
-
-    if (!refresh_token)
+    if (!body.refresh_token)
       throw new UnauthorizedException('Refresh eskirgan qayta login qiling!');
-    const access_token = await this.authService.refreshToken(refresh_token);
-    return access_token;
+    const { access_token, refresh_token } = await this.authService.refreshToken(
+      body.refresh_token,
+    );
+
+    return { access_token, refresh_token };
   }
 
   @Post('/logout')
