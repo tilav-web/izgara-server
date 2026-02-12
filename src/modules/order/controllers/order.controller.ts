@@ -63,7 +63,7 @@ export class OrdersController {
     return this.orderService.updateOrderForAdmin(order_id, dto);
   }
 
-  @Get('/find-one/admin/:id')
+  @Get('/find-one/:id')
   @Roles(AuthRoleEnum.SUPERADMIN)
   @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
   @ApiBearerAuth('access_token')
@@ -71,7 +71,7 @@ export class OrdersController {
     return this.orderService.findOneMoreOptions({ order_id });
   }
 
-  @Get('/find-one/user/:id')
+  @Get('/find-my-one/:id')
   @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
   @ApiBearerAuth('access_token')
   async findOne(@Param('id') order_id: string, @Req() req: Request) {

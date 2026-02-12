@@ -138,9 +138,7 @@ export class OrderService {
   async findAll(filter: FilterOrderDto) {
     const qb = this.orderRepository
       .createQueryBuilder('order')
-      .leftJoinAndSelect('order.location', 'location')
-      .leftJoinAndSelect('order.user', 'user')
-      .leftJoinAndSelect('order.transactions', 'transactions');
+      .leftJoinAndSelect('order.user', 'user');
 
     if (filter.search) {
       qb.andWhere(
