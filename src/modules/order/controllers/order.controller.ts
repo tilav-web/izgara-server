@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Patch,
   Post,
   Query,
@@ -60,5 +61,24 @@ export class OrdersController {
     @Query('id') order_id: string,
   ) {
     return this.orderService.updateOrderForAdmin(order_id, dto);
+  }
+
+  @Get('/find-one/admin/:id')
+  @Roles(AuthRoleEnum.SUPERADMIN)
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
+  @ApiBearerAuth('access_token')
+  async findOneForAdmin(@Param('id') order_id: string) {
+    return this.orderService.findOneMoreOptions({ order_id });
+  }
+
+  @Get('/find-one/user/:id')
+  @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
+  @ApiBearerAuth('access_token')
+  async findOne(@Param('id') order_id: string, @Req() req: Request) {
+    const auth = req.user as { id: number };
+    return this.orderService.findOneMoreOptions({
+      order_id,
+      auth_id: auth.id ?? 'auth_id_not_found',
+    });
   }
 }

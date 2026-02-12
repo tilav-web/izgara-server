@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from '../schemas/order.entity';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, FindOptionsWhere, Repository } from 'typeorm';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { UserService } from '../../user/user.service';
 import { ProductService } from '../../product/product.service';
@@ -573,5 +573,38 @@ export class OrderService {
 
     const result = await this.orderRepository.save(order);
     return result;
+  }
+
+  async findOneMoreOptions({
+    auth_id,
+    order_id,
+  }: {
+    auth_id?: number;
+    order_id: string;
+  }) {
+    if (!order_id) throw new BadRequestException('Buyurtma id si yuborilmadi!');
+
+    const filter: FindOptionsWhere<Order> = {};
+
+    filter.id = order_id;
+
+    if (auth_id) {
+      const user = await this.userService.findByAuthId(auth_id);
+      if (!user)
+        throw new NotFoundException('Foydalanuvchi malumotlari topilmadi!');
+      filter.user_id = user.id;
+    }
+
+    return this.orderRepository.findOne({
+      where: filter,
+      relations: {
+        items: {
+          product: true,
+          order_item_modifiers: {
+            modifier: true,
+          },
+        },
+      },
+    });
   }
 }
