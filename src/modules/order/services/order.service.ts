@@ -288,6 +288,14 @@ export class OrderService {
     const products = await this.productService.findByIds(dto.products);
     const modifiers = await this.modifierService.findByIds(dto.modifiers);
 
+    if (
+      dto.payment_provider &&
+      dto.payment_method !== OrderPaymentMethodEnum.PAYMENT_ONLINE
+    )
+      throw new BadRequestException(
+        `To'lov providerlaridan foydalanish uchun to'lov turi ${OrderPaymentMethodEnum.PAYMENT_ONLINE} bo'lishi kerak!`,
+      );
+
     if (dto.order_type === OrderTypeEnum.DELIVERY) {
       if (dto.payment_method === OrderPaymentMethodEnum.PAYMENT_TERMINAL)
         throw new BadRequestException(

@@ -26,6 +26,9 @@ export class CreateOrderDto {
     enum: PaymentProviderEnum,
     example: PaymentProviderEnum.CLICK,
   })
+  @Transform(({ value }: { value: PaymentProviderEnum | '' }) =>
+    value === '' ? undefined : value,
+  )
   @IsEnum(PaymentProviderEnum)
   payment_provider?: PaymentProviderEnum;
 
