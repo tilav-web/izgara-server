@@ -225,7 +225,6 @@ export class OrderService {
       },
       relations: {
         items: true,
-        transactions: true,
         location: true,
       },
       order: {
