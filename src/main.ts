@@ -6,10 +6,20 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import * as express from 'express';
 import { join } from 'path';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  const uploadsPath = join(process.cwd(), 'uploads');
+
+  app.useStaticAssets(uploadsPath, {
+    prefix: '/uploads',
+    setHeaders: (res: express.Response) => {
+      res.set('Cache-Control', 'public, max-age=2592000'); // 30 kunlik kesh (30 * 24 * 3600)
+      res.set('Expires', new Date(Date.now() + 2592000000).toUTCString());
+    },
+  });
 
   const seedService = app.get(SeedService);
   await seedService.createSuperAdminNotExists();
@@ -64,4 +74,10 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+bootstrap()
+  .then(() => {
+    console.log('Server is running!');
+  })
+  .catch((error) => {
+    console.error(error);
+  });
