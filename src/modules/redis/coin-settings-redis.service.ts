@@ -6,10 +6,10 @@ import { CoinSettings } from '../coinSettings/coin-settings.entity';
 @Injectable()
 export class CoinSettingsRedisService {
   constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
+  private readonly KEY = 'coin_settings_cache';
 
   async getCoinSettings() {
-    const key = 'coin_settings_cache';
-    const coinSettings = await this.redis.get(key);
+    const coinSettings = await this.redis.get(this.KEY);
     if (!coinSettings) return null;
     return JSON.parse(coinSettings) as CoinSettings;
   }
@@ -21,8 +21,7 @@ export class CoinSettingsRedisService {
     coinSettings: CoinSettings;
     ttl?: number;
   }) {
-    const key = 'coin_settings_cache';
     const stringCoinSettings = JSON.stringify(coinSettings);
-    await this.redis.setex(key, ttl, stringCoinSettings);
+    await this.redis.setex(this.KEY, ttl, stringCoinSettings);
   }
 }

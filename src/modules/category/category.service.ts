@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { FileService } from '../file/file.service';
 import { FileFolderEnum } from '../file/enums/file-folder.enum';
+import { CategoryRedisService } from '../redis/category-redis.service';
 
 @Injectable()
 export class CategoryService {
@@ -12,13 +13,25 @@ export class CategoryService {
     @InjectRepository(Category)
     private readonly repository: Repository<Category>,
     private readonly fileService: FileService,
+    private readonly categoryRedisService: CategoryRedisService,
   ) {}
 
   async findAll() {
-    return this.repository.find();
+    const cacheCategories = await this.categoryRedisService.getAllCategories();
+
+    if (cacheCategories) return cacheCategories;
+
+    const categories = await this.repository.find();
+    await this.categoryRedisService.setCategories(categories);
+
+    return categories;
   }
 
   async findById(id: string) {
+    const category = await this.categoryRedisService.getCategoryById(id);
+
+    if (category) return category;
+
     return this.repository.findOne({
       where: {
         id,
@@ -33,6 +46,7 @@ export class CategoryService {
       sort_order: number;
     }[],
   ) {
+    await this.categoryRedisService.invalidate();
     return this.repository.upsert(data, ['id']);
   }
 
@@ -65,6 +79,7 @@ export class CategoryService {
     if (name) category.name = name;
     if (sort_order !== undefined) category.sort_order = sort_order;
 
+    await this.categoryRedisService.invalidate();
     return this.repository.save(category);
   }
 }

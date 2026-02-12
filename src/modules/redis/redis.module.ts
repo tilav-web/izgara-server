@@ -5,6 +5,7 @@ import { OtpRedisService } from './otp-redis.service';
 import { AuthRedisService } from './auth-redis.service';
 import { UserRedisService } from './user-redis.service';
 import { CoinSettingsRedisService } from './coin-settings-redis.service';
+import { CategoryRedisService } from './category-redis.service';
 
 @Global()
 @Module({
@@ -25,6 +26,7 @@ import { CoinSettingsRedisService } from './coin-settings-redis.service';
     AuthRedisService,
     UserRedisService,
     CoinSettingsRedisService,
+    CategoryRedisService,
   ],
   exports: [
     'REDIS_CLIENT',
@@ -32,6 +34,7 @@ import { CoinSettingsRedisService } from './coin-settings-redis.service';
     AuthRedisService,
     UserRedisService,
     CoinSettingsRedisService,
+    CategoryRedisService,
   ],
 })
 export class RedisModule {}

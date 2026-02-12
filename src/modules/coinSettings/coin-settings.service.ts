@@ -24,10 +24,12 @@ export class CoinSettingsService {
 
     if (!settings) {
       settings = this.repository.create({
-        value_per_coin: 100,
-        spend_amount_for_one_coin: 10000,
-        min_spend_limit: 10000,
-        max_coins_per_order: 1000,
+        value_per_coin: Number(process.env.VALUE_PER_COIN),
+        spend_amount_for_one_coin: Number(
+          process.env.SPEND_AMOUNT_FOR_ONE_COIN,
+        ),
+        min_spend_limit: Number(process.env.MIN_SPEND_LIMIT),
+        max_coins_per_order: Number(process.env.MAX_COINS_PER_ORDER),
       });
       await this.repository.save(settings);
     }
