@@ -14,6 +14,7 @@ import { type Request } from 'express';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth } from '@nestjs/swagger';
+import { AuthStatusGuard } from '../auth/guard/status.guard';
 
 @ApiBearerAuth('access_token')
 @Controller('locations')
@@ -21,21 +22,21 @@ export class LocationController {
   constructor(private readonly locationService: LocationService) {}
 
   @Get('/my')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
   async findMyLocations(@Req() req: Request) {
     const auth = req.user as { id: number };
     return this.locationService.findLocationsByAuthId(auth.id);
   }
 
   @Post()
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
   async create(@Req() req: Request, @Body() dto: CreateLocationDto) {
     const auth = req.user as { id: number };
     return this.locationService.create(auth.id, dto);
   }
 
   @Patch('/update/:id')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
   async update(
     @Param('id') id: string,
     @Req() req: Request,
@@ -49,7 +50,7 @@ export class LocationController {
   }
 
   @Delete('/delete/:id')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
   async deleteLocation(@Param('id') id: string, @Req() req: Request) {
     const auth = req.user as { id: number };
     return this.locationService.deleteLocation({

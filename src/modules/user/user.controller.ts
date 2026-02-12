@@ -43,7 +43,7 @@ export class UserController {
   }
 
   @Get('/find-me')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
   @ApiBearerAuth('access_token')
   async findMe(@Req() req: Request) {
     const auth = req.user as { id: number };
@@ -51,7 +51,7 @@ export class UserController {
   }
 
   @Patch('/update')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
   @ApiConsumes('multipart/form-data')
   @ApiBearerAuth('access_token')
   @UseInterceptors(FileInterceptor('image'))

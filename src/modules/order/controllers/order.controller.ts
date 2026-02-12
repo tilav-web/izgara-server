@@ -34,7 +34,7 @@ export class OrdersController {
   }
 
   @Post('/create')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
   @ApiBearerAuth('access_token')
   async createOrder(@Req() req: Request, @Body() dto: CreateOrderDto) {
     const auth = req.user as { id: number };
@@ -42,7 +42,7 @@ export class OrdersController {
   }
 
   @Get('/find/my-orders')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
   @ApiBearerAuth('access_token')
   async findMyOrders(
     @Req() req: Request,
@@ -58,7 +58,7 @@ export class OrdersController {
   @ApiBearerAuth('access_token')
   async updateOrderForAdmin(
     @Body() dto: UpdateOrderDto,
-    @Query('id') order_id: string,
+    @Param('id') order_id: string,
   ) {
     return this.orderService.updateOrderForAdmin(order_id, dto);
   }

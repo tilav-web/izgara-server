@@ -54,7 +54,7 @@ export class UserService {
       );
     }
 
-    qb.skip(page - 1).take(limit);
+    qb.skip((page - 1) * limit).take(limit);
 
     const [users, total] = await qb.getManyAndCount();
 
