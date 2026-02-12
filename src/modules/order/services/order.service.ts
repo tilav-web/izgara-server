@@ -10,7 +10,6 @@ import { Brackets, FindOptionsWhere, Repository } from 'typeorm';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { UserService } from '../../user/user.service';
 import { ProductService } from '../../product/product.service';
-import { ModifierService } from '../../modifier/modifier.service';
 import { OrderPaymentMethodEnum } from '../enums/order-payment-status.enum';
 import { claculateCoin } from '../../../utils/calculate-coin';
 import { CoinSettingsService } from '../../coinSettings/coin-settings.service';
@@ -25,27 +24,20 @@ import { PaymentTransaction } from '../../payment/payment-transaction.entity';
 import { generateClickUrl } from '../../../utils/generate-click-url';
 import { FilterOrderDto } from '../dto/filter-order.dto';
 import { DataSource } from 'typeorm';
-import { Product } from '../../product/product.entity';
-import { Modifier } from '../../modifier/modifier.entity';
 import { UpdateOrderDto } from '../dto/update-order.dto';
 import { DeliverySettingsService } from '../../deliverySettings/delivery-settings.service';
 import { OrderStatusEnum } from '../enums/order-status.enum';
-
-type ProductWithQuantity = Product & { quantity: number };
-type ModifierWithQuantity = Modifier & { quantity: number };
 
 @Injectable()
 export class OrderService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-    @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(PaymentTransaction)
     private readonly paymentTransactionRepository: Repository<PaymentTransaction>,
     @InjectQueue('alipos-queue') private readonly aliposQueue: Queue,
     private readonly userService: UserService,
     private readonly productService: ProductService,
-    private readonly modifierService: ModifierService,
     private readonly coinSettingsService: CoinSettingsService,
     private readonly locationService: LocationService,
     private readonly dataSource: DataSource,
@@ -56,18 +48,11 @@ export class OrderService {
     const user = await this.userService.findByAuthId(auth_id);
     if (!user) throw new ForbiddenException('Foydalanuvchi topilmadi!');
 
-    const productsTotalPrices = await this.productService.getTotalPrice(
+    const { items_price } = await this.productService.getTotalPrice(
       dto.products,
     );
 
-    const modifiersTotalPrices = await this.modifierService.getTotalPrice(
-      dto.modifiers,
-    );
-
     const deliverySettings = await this.deliverySettingsService.findSettings();
-
-    const items_price =
-      productsTotalPrices.total_price + modifiersTotalPrices.total_price;
 
     let delivery_fee: number = 0;
 
@@ -115,24 +100,6 @@ export class OrderService {
         removeOnFail: { age: 24 * 3600 }, // Xato bo'lganlarni bazada 24 soat saqlash (tahlil uchun)
       },
     );
-  }
-
-  private buildItems(
-    products: ProductWithQuantity[],
-    modifiers: ModifierWithQuantity[],
-  ) {
-    return products.map((item) => ({
-      product_id: item.id,
-      product_name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      order_item_modifiers: modifiers.map((modifier) => ({
-        modifier_id: modifier.id,
-        modifier_name: modifier.name,
-        price: modifier.price,
-        quantity: modifier.quantity,
-      })),
-    }));
   }
 
   async findAll(filter: FilterOrderDto) {
@@ -281,9 +248,7 @@ export class OrderService {
   async createOrder(auth_id: number, dto: CreateOrderDto) {
     const { total_price, user, delivery_fee, items_price } =
       await this.makeOrderTotalPrice(auth_id, dto);
-
-    const products = await this.productService.findByIds(dto.products);
-    const modifiers = await this.modifierService.findByIds(dto.modifiers);
+    const items = await this.productService.findByIds(dto.products);
 
     if (
       dto.payment_provider &&
@@ -346,7 +311,7 @@ export class OrderService {
             lat: location.latitude,
             lng: location.longitude,
             payment_status: PaymentStatusEnum.SUCCESS,
-            items: this.buildItems(products, modifiers),
+            items,
           });
 
           savedOrder = await manager.save(order); // ← id bu yerda paydo bo'ladi
@@ -374,7 +339,7 @@ export class OrderService {
           customer_phone: user.phone,
           lat: location.latitude,
           lng: location.longitude,
-          items: this.buildItems(products, modifiers),
+          items,
         });
 
         await this.orderRepository.save(order);
@@ -397,7 +362,7 @@ export class OrderService {
           customer_phone: user.phone,
           lat: location.latitude,
           lng: location.longitude,
-          items: this.buildItems(products, modifiers),
+          items,
         });
         await this.orderRepository.save(order);
 
@@ -457,7 +422,7 @@ export class OrderService {
             delivery_fee,
             customer_phone: user.phone,
             payment_status: PaymentStatusEnum.SUCCESS,
-            items: this.buildItems(products, modifiers),
+            items,
           });
 
           savedOrder = await manager.save(order);
@@ -482,7 +447,7 @@ export class OrderService {
           items_price,
           delivery_fee,
           customer_phone: user.phone,
-          items: this.buildItems(products, modifiers),
+          items,
         });
 
         await this.orderRepository.save(order);
@@ -502,7 +467,7 @@ export class OrderService {
           items_price,
           delivery_fee,
           customer_phone: user.phone,
-          items: this.buildItems(products, modifiers),
+          items,
         });
         await this.orderRepository.save(order);
 
@@ -538,7 +503,7 @@ export class OrderService {
           items_price,
           delivery_fee,
           customer_phone: user.phone,
-          items: this.buildItems(products, modifiers),
+          items,
         });
 
         await this.orderRepository.save(order);

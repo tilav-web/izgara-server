@@ -21,11 +21,16 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { FileService } from '../file/file.service';
 import { FileFolderEnum } from '../file/enums/file-folder.enum';
 import { OrderProductDto } from '../order/dto/order-product.dto';
+import { Modifier } from '../modifier/modifier.entity';
+import { OrderItem } from '../order/schemas/order-item.entity';
+import { OrderItemModifier } from '../order/schemas/order-item-modifier.entity';
 
 @Injectable()
 export class ProductService {
   constructor(
     @InjectRepository(Product) private readonly repository: Repository<Product>,
+    @InjectRepository(Modifier)
+    private readonly modifierRepository: Repository<Modifier>,
     private readonly coinSettingsService: CoinSettingsService,
     private readonly fileService: FileService,
   ) {}
@@ -38,27 +43,76 @@ export class ProductService {
     if (dto.length === 0)
       throw new BadRequestException('Mahsulotlarni tanlang!');
 
-    const ids = dto.map((item) => item.product_id);
+    // 1. Unikal ID-larni yig'amiz (Bazaga ortiqcha yuk tushirmaslik uchun)
+    const productIds = [...new Set(dto.map((item) => item.product_id))];
+    const modifierIds = [
+      ...new Set(
+        dto.flatMap((item) => item.modifiers?.map((m) => m.modifier_id) ?? []),
+      ),
+    ];
 
-    const products = await this.repository.find({
-      where: {
-        id: In(ids),
-      },
-    });
+    // 2. Bazadan ma'lumotlarni parallel olish
+    const [products, modifiers] = await Promise.all([
+      this.repository.find({ where: { id: In(productIds) } }),
+      this.modifierRepository.find({
+        where: { id: In(modifierIds) },
+        relations: { group: true },
+      }),
+    ]);
 
-    if (products.length !== dto.length)
-      throw new BadRequestException('Mahsulotlarni tanlang!');
+    // 3. Bazada hamma mahsulotlar borligini tekshirish
+    if (products.length !== productIds.length) {
+      throw new BadRequestException("Ba'zi mahsulotlar topilmadi!");
+    }
 
-    const quantityMap = new Map<string, number>();
-    dto.forEach((item) => quantityMap.set(item.product_id, item.quantity));
+    // 4. Map orqali qidiruvni tezlashtiramiz
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    const modifierMap = new Map(modifiers.map((m) => [m.id, m]));
 
-    const total_price = products.reduce((acc, item) => {
-      const quantity = quantityMap.get(item.id);
-      if (!quantity) return acc;
-      return acc + Number(item.price) * quantity;
+    // 5. Umumiy narxni DTO bo'yicha hisoblaymiz
+    const items_price = dto.reduce((acc, item) => {
+      const product = productMap.get(item.product_id);
+      if (!product) return acc;
+
+      // Asosiy mahsulot narxi
+      let currentItemPrice = Number(product.price);
+
+      // Modifierlar narxini hisoblaymiz
+      if (item.modifiers && item.modifiers.length > 0) {
+        const seenModifierIds = new Set<string>();
+        const modifiersSum = item.modifiers.reduce((mAcc, mDto) => {
+          if (seenModifierIds.has(mDto.modifier_id)) {
+            throw new BadRequestException(
+              `Bir mahsulot ichida takroriy modifier bor: ${mDto.modifier_id}`,
+            );
+          }
+          seenModifierIds.add(mDto.modifier_id);
+
+          const mod = modifierMap.get(mDto.modifier_id);
+          if (!mod) {
+            throw new NotFoundException(
+              `Modifier ${mDto.modifier_id} topilmadi!`,
+            );
+          }
+
+          if (mod.group?.product_id !== item.product_id) {
+            throw new BadRequestException(
+              `Modifier ${mod.id} mahsulot ${item.product_id} ga tegishli emas`,
+            );
+          }
+
+          // Modifier narxi * DTO dagi modifier quantity
+          return mAcc + Number(mod.price) * mDto.quantity;
+        }, 0);
+
+        currentItemPrice += modifiersSum;
+      }
+
+      // (Mahsulot + Modifierlar) * DTO dagi mahsulot quantity
+      return acc + currentItemPrice * item.quantity;
     }, 0);
 
-    return { total_price };
+    return { items_price };
   }
 
   async findAll({
@@ -183,30 +237,77 @@ export class ProductService {
   }
 
   async findByIds(dto: OrderProductDto[]) {
-    // 1. Takroriy id tekshirish
-    const ids = dto.map((item) => item.product_id);
-    const uniqueIds = [...new Set(ids)];
-    if (uniqueIds.length !== ids.length)
-      throw new BadRequestException('Takroriy productlar mavjud!');
+    // 1. ID-larni yig'ish
+    const productIds = dto.map((d) => d.product_id);
+    const modifierIds = dto.flatMap(
+      (d) => d.modifiers?.map((m) => m.modifier_id) ?? [],
+    );
 
-    // 2. Bazadan olish
-    const products = await this.repository.find({
-      where: { id: In(uniqueIds) },
-    });
+    // 2. Bazadan ma'lumotlarni parallel olish
+    const [products, modifiers] = await Promise.all([
+      this.repository.find({ where: { id: In(productIds) } }),
+      this.modifierRepository.find({
+        where: { id: In(modifierIds) },
+        relations: { group: true },
+      }),
+    ]);
 
-    // 3. Mavjud bo'lmagan product tekshirish
-    if (products.length !== uniqueIds.length) {
-      const foundIds = products.map((p) => p.id);
-      const missingIds = uniqueIds.filter((id) => !foundIds.includes(id));
-      throw new NotFoundException(
-        `Quyidagi productlar topilmadi: ${missingIds.join(', ')}`,
-      );
+    // 3. Mahsulotlar to'liqligini tekshirish
+    if (products.length !== [...new Set(productIds)].length) {
+      throw new NotFoundException("Ba'zi mahsulotlar topilmadi!");
     }
 
-    // 4. Quantity qo'shish
-    return products.map((product) => {
-      const found = dto.find((d) => d.product_id === product.id)!;
-      return { ...product, quantity: found.quantity };
+    // 4. Map-lar orqali optimallash
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    const modifierMap = new Map(modifiers.map((m) => [m.id, m]));
+
+    // 5. DTO-ni Entity strukturasiga o'tkazish
+    const items = dto.map((d) => {
+      const product = productMap.get(d.product_id)!;
+
+      // OrderItem obyektini shakllantiramiz
+      const orderItem = new OrderItem();
+      orderItem.product_id = product.id;
+      orderItem.product_name = product.name; // Tarix uchun nom
+      orderItem.price = Number(product.price); // Tarix uchun narx
+      orderItem.quantity = d.quantity;
+
+      // Agar modifierlar bo'lsa, ularni ham entity ko'rinishida shakllantiramiz
+      if (d.modifiers && d.modifiers.length > 0) {
+        const seenModifierIds = new Set<string>();
+        orderItem.order_item_modifiers = d.modifiers.map((mDto) => {
+          if (seenModifierIds.has(mDto.modifier_id)) {
+            throw new BadRequestException(
+              `Bir mahsulot ichida takroriy modifier bor: ${mDto.modifier_id}`,
+            );
+          }
+          seenModifierIds.add(mDto.modifier_id);
+
+          const mod = modifierMap.get(mDto.modifier_id);
+          if (!mod)
+            throw new NotFoundException(
+              `Modifier ${mDto.modifier_id} topilmadi!`,
+            );
+
+          if (mod.group?.product_id !== d.product_id) {
+            throw new BadRequestException(
+              `Modifier ${mod.id} mahsulot ${d.product_id} ga tegishli emas`,
+            );
+          }
+
+          const orderItemModifier = new OrderItemModifier();
+          orderItemModifier.modifier_id = mod.id;
+          orderItemModifier.modifier_name = mod.name;
+          orderItemModifier.price = Number(mod.price);
+          orderItemModifier.quantity = mDto.quantity;
+
+          return orderItemModifier;
+        });
+      }
+
+      return orderItem;
     });
+
+    return items;
   }
 }

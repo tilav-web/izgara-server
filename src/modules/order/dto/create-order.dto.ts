@@ -11,7 +11,6 @@ import { Transform, Type } from 'class-transformer';
 import { OrderPaymentMethodEnum } from '../enums/order-payment-status.enum';
 import { OrderTypeEnum } from '../enums/order-type.enum';
 import { OrderProductDto } from './order-product.dto';
-import { OrderModifierDto } from './order-modifier.dto';
 import { PaymentProviderEnum } from '../../payment/enums/payment-provider.enum';
 
 export class CreateOrderDto {
@@ -67,15 +66,4 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderProductDto)
   products: OrderProductDto[];
-
-  // --- modifiers ---
-  @ApiPropertyOptional({
-    type: [OrderModifierDto],
-    description: 'Tanlangan modifierlar',
-  })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => OrderModifierDto)
-  modifiers?: OrderModifierDto[];
 }

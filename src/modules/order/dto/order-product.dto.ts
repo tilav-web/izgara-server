@@ -1,6 +1,14 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsUUID, IsNumber, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsUUID,
+  IsNumber,
+  Min,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
+import { OrderModifierDto } from './order-modifier.dto';
 
 export class OrderProductDto {
   @ApiProperty({
@@ -19,4 +27,14 @@ export class OrderProductDto {
   @Min(1)
   @Type(() => Number)
   quantity: number;
+
+  @ApiPropertyOptional({
+    type: [OrderModifierDto],
+    description: 'Tanlangan modifierlar',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrderModifierDto)
+  modifiers?: OrderModifierDto[];
 }

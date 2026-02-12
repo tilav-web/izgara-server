@@ -5,10 +5,11 @@ import { ProductController } from './product.controller';
 import { ProductService } from './product.service';
 import { CoinSettingsModule } from '../coinSettings/coin-settings.module';
 import { FileModule } from '../file/file.module';
+import { Modifier } from '../modifier/modifier.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Product]),
+    TypeOrmModule.forFeature([Product, Modifier]),
     CoinSettingsModule,
     FileModule,
   ],
