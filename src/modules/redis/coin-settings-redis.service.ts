@@ -10,8 +10,7 @@ export class CoinSettingsRedisService {
 
   async getCoinSettings() {
     const coinSettings = await this.redis.get(this.KEY);
-    if (!coinSettings) return null;
-    return JSON.parse(coinSettings) as CoinSettings;
+    return coinSettings ? (JSON.parse(coinSettings) as CoinSettings) : null;
   }
 
   async setCoinSettings({
@@ -21,7 +20,6 @@ export class CoinSettingsRedisService {
     coinSettings: CoinSettings;
     ttl?: number;
   }) {
-    const stringCoinSettings = JSON.stringify(coinSettings);
-    await this.redis.setex(this.KEY, ttl, stringCoinSettings);
+    await this.redis.setex(this.KEY, ttl, JSON.stringify(coinSettings));
   }
 }
