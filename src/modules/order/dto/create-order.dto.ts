@@ -29,6 +29,7 @@ export class CreateOrderDto {
   @Transform(({ value }: { value: PaymentProviderEnum | '' }) =>
     value === '' ? undefined : value,
   )
+  @IsOptional()
   @IsEnum(PaymentProviderEnum)
   payment_provider?: PaymentProviderEnum;
 
