@@ -14,6 +14,7 @@ import { LocationModule } from '../location/location.module';
 import { DeliverySettingsModule } from '../deliverySettings/delivery-settings.module';
 import { JobsModule } from '../jobs/jobs.module';
 import { PaymentTransaction } from '../payment/payment-transaction.entity';
+import { SocketModule } from '../socket/socket.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { PaymentTransaction } from '../payment/payment-transaction.entity';
     LocationModule,
     DeliverySettingsModule,
     JobsModule,
+    SocketModule,
   ],
   controllers: [OrdersController],
   providers: [OrderService],

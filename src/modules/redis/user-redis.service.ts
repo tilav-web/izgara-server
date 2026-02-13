@@ -26,4 +26,42 @@ export class UserRedisService {
     if (!user) return null;
     return JSON.parse(user) as User;
   }
+
+  async setUserWithSocketClientId({
+    user_id,
+    client_id,
+    ttl = CACHE_TTL.USER_SOCKET_CLIENT_TTL,
+  }: {
+    user_id: number;
+    client_id: string;
+    ttl?: number;
+  }) {
+    const key = `user_sockets:${user_id}`;
+
+    // SADD - to'plamga yangi socket_id qo'shadi
+    await this.redis.sadd(key, client_id);
+
+    // Har safar yangi ulanish bo'lganda TTL ni yangilaymiz
+    await this.redis.expire(key, ttl);
+  }
+
+  /**
+   * Foydalanuvchi uzilganda faqat o'sha client_id ni o'chirish
+   */
+  async removeSocketClientId(user_id: number, client_id: string) {
+    const key = `user_sockets:${user_id}`;
+
+    // SREM - to'plamdan faqat bitta socket_id ni o'chiradi
+    await this.redis.srem(key, client_id);
+  }
+
+  /**
+   * Foydalanuvchining barcha aktiv socket_id larini olish
+   */
+  async getUserSocketClients(user_id: number): Promise<string[]> {
+    const key = `user_sockets:${user_id}`;
+
+    // SMEMBERS - to'plamdagi barcha socket_id larni qaytaradi
+    return await this.redis.smembers(key);
+  }
 }

@@ -27,6 +27,7 @@ import { DataSource } from 'typeorm';
 import { UpdateOrderDto } from '../dto/update-order.dto';
 import { DeliverySettingsService } from '../../deliverySettings/delivery-settings.service';
 import { OrderStatusEnum } from '../enums/order-status.enum';
+import { OrderGateway } from '../../socket/gateways/order.gateway';
 
 @Injectable()
 export class OrderService {
@@ -42,6 +43,7 @@ export class OrderService {
     private readonly locationService: LocationService,
     private readonly dataSource: DataSource,
     private readonly deliverySettingsService: DeliverySettingsService,
+    private readonly orderGateway: OrderGateway,
   ) {}
 
   private async makeOrderTotalPrice(auth_id: number, dto: CreateOrderDto) {
@@ -223,22 +225,6 @@ export class OrderService {
       await this.orderRepository.update(id, {
         payment_status: PaymentStatusEnum.SUCCESS,
       });
-
-      await this.aliposQueue.add(
-        'send-order-to-alipos',
-        {
-          id: order.id,
-        },
-        {
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 5000,
-          },
-          removeOnComplete: true, // Muvaffaqiyatli bo'lganda o'chirish
-          removeOnFail: false, // Xato bo'lganda saqlab qolish (debugging uchun)
-        },
-      );
     } catch (error) {
       console.log(error);
       throw error;
@@ -548,6 +534,11 @@ export class OrderService {
     }
 
     const result = await this.orderRepository.save(order);
+    await this.orderGateway.handleStatus({
+      order_id: result.id,
+      status: order.status,
+      user_id: order.user_id,
+    });
     return result;
   }
 
