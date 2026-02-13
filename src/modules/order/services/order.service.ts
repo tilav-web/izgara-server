@@ -318,7 +318,6 @@ export class OrderService {
           if (!savedOrder) {
             throw new BadRequestException('Order saqlanmadi!');
           }
-          await this.sendToAlipos(savedOrder.id);
         });
 
         return savedOrder;
@@ -343,7 +342,6 @@ export class OrderService {
         });
 
         await this.orderRepository.save(order);
-        await this.sendToAlipos(order.id);
         return order;
       }
 
@@ -429,7 +427,6 @@ export class OrderService {
           if (!savedOrder) {
             throw new BadRequestException('Order saqlanmadi!');
           }
-          await this.sendToAlipos(savedOrder.id);
         });
 
         return savedOrder;
@@ -451,7 +448,6 @@ export class OrderService {
         });
 
         await this.orderRepository.save(order);
-        await this.sendToAlipos(order.id);
         return order;
       }
 
@@ -507,7 +503,6 @@ export class OrderService {
         });
 
         await this.orderRepository.save(order);
-        await this.sendToAlipos(order.id);
         return order;
       }
     }
@@ -522,6 +517,24 @@ export class OrderService {
     });
 
     if (!order) throw new NotFoundException('Buyurtma malumotlari topilmadi!');
+
+    if (
+      dto.status === OrderStatusEnum.NEW &&
+      order.status !== OrderStatusEnum.NEW
+    )
+      throw new BadRequestException(
+        "Order status ni NEW ga o'zgartira olmaysiz!",
+      );
+
+    if (
+      dto.status &&
+      dto.status !== OrderStatusEnum.CANCELLED &&
+      dto.status !== OrderStatusEnum.NEW &&
+      order.status === OrderStatusEnum.NEW
+    ) {
+      await this.sendToAlipos(order.id);
+      order.status = dto.status;
+    }
 
     if (dto.status) {
       order.status = dto.status;
@@ -569,5 +582,40 @@ export class OrderService {
         },
       },
     });
+  }
+
+  async cancelledOrder({
+    order_id,
+    auth_id,
+  }: {
+    order_id: string;
+    auth_id: number;
+  }) {
+    const auth = await this.userService.findByAuthId(auth_id);
+
+    if (!auth)
+      throw new NotFoundException('Foydalanuvchi malumotlari topilmadi!');
+
+    const order = await this.orderRepository.findOne({
+      where: {
+        id: order_id,
+      },
+    });
+
+    if (!order) throw new NotFoundException('Buyurtma malumotlari topilmadi!');
+
+    if (order.status === OrderStatusEnum.CANCELLED)
+      throw new BadRequestException('Buyurtma allaqachon bekor qilingan!');
+
+    if (order.status === OrderStatusEnum.NEW) {
+      order.status = OrderStatusEnum.CANCELLED;
+      const newOrder = await this.orderRepository.save(order);
+      return newOrder;
+    }
+
+    order.status = OrderStatusEnum.CANCELLED;
+
+    const newOrder = await this.orderRepository.save(order);
+    return newOrder;
   }
 }

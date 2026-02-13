@@ -81,4 +81,15 @@ export class OrdersController {
       auth_id: auth.id ?? 'auth_id_not_found',
     });
   }
+
+  @Post('/cancelled/:id')
+  @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
+  @ApiBearerAuth('access_token')
+  async cancelledOrder(@Param('id') order_id: string, @Req() req: Request) {
+    const auth = req.user as { id: number };
+    return this.orderService.cancelledOrder({
+      order_id,
+      auth_id: auth.id,
+    });
+  }
 }
