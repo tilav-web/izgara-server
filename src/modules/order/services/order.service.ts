@@ -584,38 +584,42 @@ export class OrderService {
     });
   }
 
-  async cancelledOrder({
+  async cancelOrder({
     order_id,
     auth_id,
   }: {
     order_id: string;
     auth_id: number;
   }) {
-    const auth = await this.userService.findByAuthId(auth_id);
-
-    if (!auth)
-      throw new NotFoundException('Foydalanuvchi malumotlari topilmadi!');
+    const user = await this.userService.findByAuthId(auth_id);
+    if (!user) {
+      throw new NotFoundException('Foydalanuvchi ma’lumotlari topilmadi!');
+    }
 
     const order = await this.orderRepository.findOne({
       where: {
         id: order_id,
+        user_id: user.id,
       },
     });
 
-    if (!order) throw new NotFoundException('Buyurtma malumotlari topilmadi!');
-
-    if (order.status === OrderStatusEnum.CANCELLED)
-      throw new BadRequestException('Buyurtma allaqachon bekor qilingan!');
-
-    if (order.status === OrderStatusEnum.NEW) {
-      order.status = OrderStatusEnum.CANCELLED;
-      const newOrder = await this.orderRepository.save(order);
-      return newOrder;
+    if (!order) {
+      throw new NotFoundException(
+        'Buyurtma topilmadi yoki sizga tegishli emas!',
+      );
     }
 
-    order.status = OrderStatusEnum.CANCELLED;
+    if (order.status === OrderStatusEnum.CANCELLED) {
+      throw new BadRequestException('Buyurtma allaqachon bekor qilingan!');
+    }
 
-    const newOrder = await this.orderRepository.save(order);
-    return newOrder;
+    return await this.dataSource.transaction(async (manager) => {
+      if (order.status !== OrderStatusEnum.NEW) {
+        await this.deleteToAlipos(order.id);
+      }
+      order.status = OrderStatusEnum.CANCELLED;
+      const updatedOrder = await manager.save(order);
+      return updatedOrder;
+    });
   }
 }
