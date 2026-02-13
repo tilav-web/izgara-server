@@ -8,7 +8,6 @@ import { Server, Socket } from 'socket.io';
 import { UserRedisService } from '../../redis/user-redis.service';
 
 @WebSocketGateway({
-  namespace: 'orders', // Namespace ishlatish tartib uchun yaxshi
   cors: { origin: '*' },
 })
 export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
