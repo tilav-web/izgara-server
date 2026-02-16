@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, DataSource, Repository } from 'typeorm';
 import { Order } from '../../order/schemas/order.entity';
@@ -19,6 +23,8 @@ import {
   SetFiscalDataParams,
   TransactionIdParams,
 } from '../types/payme.types';
+import { generatePaymeUrl } from '../../../utils/generate-payme-url';
+import { OrderService } from '../../order/services/order.service';
 
 @Injectable()
 export class PaymeService {
@@ -28,7 +34,52 @@ export class PaymeService {
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
     private readonly dataSource: DataSource,
+    private readonly orderService: OrderService,
   ) {}
+
+  async getPendingPaymentUrl({
+    auth_id,
+    order_id,
+  }: {
+    auth_id: number;
+    order_id: string;
+  }) {
+    const order = await this.orderService.findOneMoreOptions({
+      auth_id,
+      order_id,
+    });
+    if (!order) {
+      throw new NotFoundException('Buyurtma topilmadi!');
+    }
+
+    if (order.payment_status === PaymentStatusEnum.SUCCESS) {
+      throw new BadRequestException("Bu buyurtma allaqachon to'langan!");
+    }
+
+    const paymentTransaction = await this.transactionRepo.findOne({
+      where: {
+        order_id,
+        provider: PaymentProviderEnum.PAYME,
+        status: PaymentStatusEnum.PENDING,
+      },
+      order: {
+        created_at: 'DESC',
+      },
+    });
+
+    if (!paymentTransaction) {
+      throw new BadRequestException(
+        'PAYME uchun pending to`lov tranzaksiyasi topilmadi!',
+      );
+    }
+
+    return {
+      url: generatePaymeUrl({
+        amount: Number(paymentTransaction.amount),
+        transaction_id: paymentTransaction.id,
+      }),
+    };
+  }
 
   async handleRequest(body: unknown): Promise<PaymeRpcResponse> {
     const request = this.parseRequest(body);

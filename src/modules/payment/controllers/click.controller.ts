@@ -1,4 +1,18 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import type { Request } from 'express';
+import { AuthStatusGuard } from '../../auth/guard/status.guard';
 import { ClickWebhookDto } from '../dto/click-webhook.dto';
 import { ClickService } from '../services/click.service';
 
@@ -10,5 +24,19 @@ export class ClickController {
   @HttpCode(HttpStatus.OK)
   async handleWebhook(@Body() body: ClickWebhookDto) {
     return this.clickService.handleWebhook(body);
+  }
+
+  @Get('url/:order_id')
+  @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
+  @ApiBearerAuth('access_token')
+  async getPendingClickUrl(
+    @Req() req: Request,
+    @Param('order_id') order_id: string,
+  ) {
+    const auth = req.user as { id: number };
+    return this.clickService.getPendingPaymentUrl({
+      auth_id: auth.id,
+      order_id,
+    });
   }
 }
