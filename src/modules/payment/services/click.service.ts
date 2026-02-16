@@ -7,6 +7,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as crypto from 'crypto';
 import { DataSource, Repository } from 'typeorm';
 import { Order } from '../../order/schemas/order.entity';
+import { OrderPaymentMethodEnum } from '../../order/enums/order-payment-status.enum';
+import { OrderStatusEnum } from '../../order/enums/order-status.enum';
 import { OrderService } from '../../order/services/order.service';
 import { ClickWebhookDto } from '../dto/click-webhook.dto';
 import { ClickActionEnum } from '../enums/click-action.enum';
@@ -45,27 +47,36 @@ export class ClickService {
       throw new BadRequestException("Bu buyurtma allaqachon to'langan!");
     }
 
-    const paymentTransaction = await this.paymentTransactionRepository.findOne({
-      where: {
-        order_id,
-        provider: PaymentProviderEnum.CLICK,
-        status: PaymentStatusEnum.PENDING,
-      },
-      order: {
-        created_at: 'DESC',
-      },
-    });
-
-    if (!paymentTransaction) {
+    if (order.status === OrderStatusEnum.CANCELLED) {
       throw new BadRequestException(
-        'CLICK uchun pending to`lov tranzaksiyasi topilmadi!',
+        'Bekor qilingan buyurtma uchun to`lov qilib bo`lmaydi!',
       );
     }
 
+    if (order.payment_method !== OrderPaymentMethodEnum.PAYMENT_ONLINE) {
+      throw new BadRequestException(
+        'Bu buyurtma uchun online to`lov yoqilgan emas!',
+      );
+    }
+
+    const amount = Number(order.total_price);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Buyurtma summasi noto`g`ri!');
+    }
+
+    const paymentTransaction = this.paymentTransactionRepository.create({
+      order_id,
+      provider: PaymentProviderEnum.CLICK,
+      amount,
+      status: PaymentStatusEnum.PENDING,
+    });
+    const savedTransaction =
+      await this.paymentTransactionRepository.save(paymentTransaction);
+
     return {
       url: generateClickUrl({
-        amount: Number(paymentTransaction.amount),
-        transaction_id: paymentTransaction.id,
+        amount,
+        transaction_id: savedTransaction.id,
       }),
     };
   }

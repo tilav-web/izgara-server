@@ -6,6 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, DataSource, Repository } from 'typeorm';
 import { Order } from '../../order/schemas/order.entity';
+import { OrderPaymentMethodEnum } from '../../order/enums/order-payment-status.enum';
+import { OrderStatusEnum } from '../../order/enums/order-status.enum';
 import { PaymentTransaction } from '../payment-transaction.entity';
 import { PaymentProviderEnum } from '../enums/payment-provider.enum';
 import { PaymentStatusEnum } from '../enums/payment-status.enum';
@@ -56,27 +58,33 @@ export class PaymeService {
       throw new BadRequestException("Bu buyurtma allaqachon to'langan!");
     }
 
-    const paymentTransaction = await this.transactionRepo.findOne({
-      where: {
-        order_id,
-        provider: PaymentProviderEnum.PAYME,
-        status: PaymentStatusEnum.PENDING,
-      },
-      order: {
-        created_at: 'DESC',
-      },
-    });
+    if (order.status === OrderStatusEnum.CANCELLED) {
+      throw new BadRequestException('Bekor qilingan buyurtma uchun to`lov qilib bo`lmaydi!');
+    }
 
-    if (!paymentTransaction) {
+    if (order.payment_method !== OrderPaymentMethodEnum.PAYMENT_ONLINE) {
       throw new BadRequestException(
-        'PAYME uchun pending to`lov tranzaksiyasi topilmadi!',
+        'Bu buyurtma uchun online to`lov yoqilgan emas!',
       );
     }
 
+    const amount = Number(order.total_price);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Buyurtma summasi noto`g`ri!');
+    }
+
+    const paymentTransaction = this.transactionRepo.create({
+      order_id,
+      provider: PaymentProviderEnum.PAYME,
+      amount,
+      status: PaymentStatusEnum.PENDING,
+    });
+    const savedTransaction = await this.transactionRepo.save(paymentTransaction);
+
     return {
       url: generatePaymeUrl({
-        amount: Number(paymentTransaction.amount),
-        transaction_id: paymentTransaction.id,
+        amount,
+        transaction_id: savedTransaction.id,
       }),
     };
   }
