@@ -12,6 +12,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { FileService } from '../file/file.service';
 import { FileFolderEnum } from '../file/enums/file-folder.enum';
 import { UsersFilterDto } from './dto/users-filter.dto';
+import { AuthStatusEnum } from '../auth/enums/status.enum';
+import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 
 @Injectable()
 export class UserService {
@@ -150,5 +152,45 @@ export class UserService {
     const result = await this.repository.save(user);
     await this.userRedisService.setUserDetails({ user: result, auth_id });
     return result;
+  }
+
+  async getStatsUsers() {
+    const [statusStats, roleStats] = await Promise.all([
+      this.repository
+        .createQueryBuilder('user')
+        .select('user.status', 'status')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('user.status')
+        .getRawMany<{ status: AuthStatusEnum; count: string }>(),
+
+      this.repository
+        .createQueryBuilder('user')
+        .select('user.role', 'role')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('user.role')
+        .getRawMany<{
+          role: AuthRoleEnum;
+          count: string;
+        }>(),
+    ]);
+
+    const getStatusCount = (status: AuthStatusEnum): number =>
+      Number(statusStats.find((s) => s.status === status)?.count ?? 0);
+
+    const getRoleCount = (role: AuthRoleEnum): number =>
+      Number(roleStats.find((r) => r.role === role)?.count ?? 0);
+
+    return {
+      total_users: statusStats.reduce((sum, s) => sum + Number(s.count), 0),
+      active_users: getStatusCount(AuthStatusEnum.ACTIVE),
+      inactive_users: getStatusCount(AuthStatusEnum.BLOCK),
+      deleted_users: getStatusCount(AuthStatusEnum.DELETED),
+      account_deleted_users: getStatusCount(AuthStatusEnum.ACCOUNT_DELETED),
+      admins_users: getRoleCount(AuthRoleEnum.SUPERADMIN),
+      chef_users: getRoleCount(AuthRoleEnum.CHEF),
+      users: getRoleCount(AuthRoleEnum.USER),
+      waiter_users: getRoleCount(AuthRoleEnum.WAITER),
+      delivery_users: getRoleCount(AuthRoleEnum.DELIVERY),
+    };
   }
 }

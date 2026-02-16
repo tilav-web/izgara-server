@@ -42,6 +42,14 @@ export class UserController {
     return this.userService.findAll(query);
   }
 
+  @Get('/stats')
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
+  @Roles(AuthRoleEnum.SUPERADMIN)
+  @ApiBearerAuth('access_token')
+  async getStatsUsers() {
+    return this.userService.getStatsUsers();
+  }
+
   @Get('/find-me')
   @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
   @ApiBearerAuth('access_token')
