@@ -1,3 +1,5 @@
+import { InternalServerErrorException } from '@nestjs/common';
+
 export const generatePaymeUrl = ({
   amount,
   transaction_id,
@@ -8,7 +10,9 @@ export const generatePaymeUrl = ({
   const merchant_id = process.env.PAYME_MERCHANT_ID;
 
   if (!merchant_id) {
-    throw new Error("Payme to'lov tizimi sozlamalari to'liq emas!");
+    throw new InternalServerErrorException(
+      "Payme to'lov tizimi sozlamalari to'liq emas!",
+    );
   }
 
   // Payme summani tiyinda qabul qiladi (masalan: 15000.00 so'm -> 1500000 tiyin)

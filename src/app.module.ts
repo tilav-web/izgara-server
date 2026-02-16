@@ -16,6 +16,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { OrderModule } from './modules/order/order.module';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { PaymentModule } from './modules/payment/payment.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
     DeliverySettingsModule,
     JobsModule,
     OrderModule,
+    PaymentModule,
   ],
 })
 export class AppModule {}

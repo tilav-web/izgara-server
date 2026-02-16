@@ -34,7 +34,7 @@ export class OrdersController {
     return this.orderService.findAll(dto);
   }
 
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Throttle({ default: { ttl: 10000, limit: 1 } })
   @Post('/create')
   @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
   @ApiBearerAuth('access_token')

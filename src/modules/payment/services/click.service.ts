@@ -1,26 +1,28 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import * as crypto from 'crypto';
-import { PaymentTransaction } from '../payment-transaction.entity';
-import { ClickWebhookDto } from '../dto/click-webhook.dto';
-import { PaymentStatusEnum } from '../enums/payment-status.enum';
+import { DataSource, Repository } from 'typeorm';
 import { Order } from '../../order/schemas/order.entity';
-import { OrderService } from '../../order/services/order.service';
+import { ClickWebhookDto } from '../dto/click-webhook.dto';
+import { ClickActionEnum } from '../enums/click-action.enum';
+import { ClickErrorCodeEnum } from '../enums/click-error-code.enum';
+import { PaymentProviderEnum } from '../enums/payment-provider.enum';
+import { PaymentStatusEnum } from '../enums/payment-status.enum';
+import { PaymentTransaction } from '../payment-transaction.entity';
+import { ClickWebhookResponse } from '../types/click.types';
 
 @Injectable()
 export class ClickService {
   constructor(
     @InjectRepository(PaymentTransaction)
     private readonly paymentTransactionRepository: Repository<PaymentTransaction>,
-    @InjectRepository(Order)
-    private readonly orderService: OrderService,
+    private readonly dataSource: DataSource,
   ) {}
 
-  async handleWebhook(dto: ClickWebhookDto) {
+  async handleWebhook(dto: ClickWebhookDto): Promise<ClickWebhookResponse> {
     const {
       click_trans_id,
-      merchant_trans_id, // Bu biz yuborgan PaymentTransaction.id
+      merchant_trans_id,
       amount,
       action,
       sign_string,
@@ -31,87 +33,213 @@ export class ClickService {
     } = dto;
 
     const secretKey = process.env.CLICK_SECRET_KEY;
+    const expectedServiceId = process.env.CLICK_SERVICE_ID;
+
+    if (!secretKey || !expectedServiceId) {
+      return this.error(
+        ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK,
+        'CONFIGURATION_ERROR',
+      );
+    }
+
+    if (service_id !== expectedServiceId) {
+      return this.error(
+        ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK,
+        'INVALID_SERVICE_ID',
+      );
+    }
+
+    if (!this.isClickAction(action)) {
+      return this.error(
+        ClickErrorCodeEnum.ACTION_NOT_FOUND,
+        'ACTION_NOT_FOUND',
+      );
+    }
 
     const stringToHash =
-      action.toString() === '0'
+      action === ClickActionEnum.PREPARE
         ? `${click_trans_id}${service_id}${secretKey}${merchant_trans_id}${amount}${action}${sign_time}`
-        : `${click_trans_id}${service_id}${secretKey}${merchant_trans_id}${merchant_prepare_id}${amount}${action}${sign_time}`;
+        : `${click_trans_id}${service_id}${secretKey}${merchant_trans_id}${merchant_prepare_id ?? ''}${amount}${action}${sign_time}`;
 
     const mySign = crypto.createHash('md5').update(stringToHash).digest('hex');
 
     if (mySign !== sign_string) {
-      return { error: '-1', error_note: 'SIGN_CHECK_FAILED' };
+      return this.error(
+        ClickErrorCodeEnum.SIGN_CHECK_FAILED,
+        'SIGN_CHECK_FAILED',
+      );
     }
 
-    // 2. Tranzaksiyani bazadan qidirish (Relation orqali orderni ham olamiz)
     const paymentTransaction = await this.paymentTransactionRepository.findOne({
-      where: { id: merchant_trans_id },
+      where: {
+        id: merchant_trans_id,
+        provider: PaymentProviderEnum.CLICK,
+      },
       relations: { order: true },
     });
 
     if (!paymentTransaction) {
-      return { error: '-5', error_note: 'TRANSACTION_NOT_FOUND' };
+      return this.error(
+        ClickErrorCodeEnum.USER_DOES_NOT_EXIST,
+        'TRANSACTION_NOT_FOUND',
+      );
     }
 
     const order = paymentTransaction.order;
+    const requestAmount = Number(amount);
 
-    // 3. Summani tekshirish (Haqiqiy total_price bilan Click'dan kelganini solishtirish)
-    if (Number(order.total_price) !== Number(amount)) {
-      return { error: '-2', error_note: 'INVALID_AMOUNT' };
+    if (!this.isAmountEqual(Number(order.total_price), requestAmount)) {
+      return this.error(ClickErrorCodeEnum.INVALID_AMOUNT, 'INVALID_AMOUNT');
     }
 
-    // 4. PREPARE (action = 0)
-    if (action === '0') {
-      // Agar tranzaksiya allaqachon muvaffaqiyatli bo'lgan bo'lsa
-      if (paymentTransaction.status === PaymentStatusEnum.SUCCESS) {
-        return { error: '-4', error_note: 'ALREADY_PAID' };
-      }
+    if (action === ClickActionEnum.PREPARE) {
+      return this.handlePrepare({
+        paymentTransaction,
+        click_trans_id,
+        merchant_trans_id,
+      });
+    }
 
-      // Click tranzaksiya ID sini saqlab qo'yamiz (keyinchalik solishtirish uchun)
-      paymentTransaction.provider_transaction_id = click_trans_id.toString();
+    return this.handleComplete({
+      paymentTransaction,
+      click_trans_id,
+      merchant_trans_id,
+      merchant_prepare_id,
+      clickErrorCode: this.parseClickErrorCode(error),
+    });
+  }
+
+  private async handlePrepare({
+    paymentTransaction,
+    click_trans_id,
+    merchant_trans_id,
+  }: {
+    paymentTransaction: PaymentTransaction;
+    click_trans_id: string;
+    merchant_trans_id: string;
+  }): Promise<ClickWebhookResponse> {
+    if (paymentTransaction.status === PaymentStatusEnum.SUCCESS) {
+      return this.error(ClickErrorCodeEnum.ALREADY_PAID, 'ALREADY_PAID');
+    }
+
+    if (paymentTransaction.status === PaymentStatusEnum.CANCELLED) {
+      return this.error(
+        ClickErrorCodeEnum.TRANSACTION_CANCELLED,
+        'TRANSACTION_CANCELLED',
+      );
+    }
+
+    if (paymentTransaction.provider_transaction_id !== click_trans_id) {
+      paymentTransaction.provider_transaction_id = click_trans_id;
       await this.paymentTransactionRepository.save(paymentTransaction);
-
-      return {
-        click_trans_id,
-        merchant_trans_id,
-        merchant_prepare_id: paymentTransaction.id.toString(),
-        error: '0',
-        error_note: 'SUCCESS',
-      };
     }
 
-    // 5. COMPLETE (action = 1)
-    if (action === '1') {
-      // Xatolik bo'lsa
-      if (error !== '0') {
-        await this.paymentTransactionRepository.update(paymentTransaction.id, {
-          status: PaymentStatusEnum.FAILED,
-        });
-        return { error: '-9', error_note: 'TRANSACTION_CANCELLED' };
-      }
+    return {
+      click_trans_id,
+      merchant_trans_id,
+      merchant_prepare_id: paymentTransaction.id,
+      error: ClickErrorCodeEnum.SUCCESS.toString(),
+      error_note: 'SUCCESS',
+    };
+  }
 
-      // To'lov muvaffaqiyatli bo'lsa
-      if (paymentTransaction.status !== PaymentStatusEnum.SUCCESS) {
-        // a) Tranzaksiyani yangilash
-        await this.paymentTransactionRepository.update(paymentTransaction.id, {
-          status: PaymentStatusEnum.SUCCESS,
-          provider_transaction_id: click_trans_id.toString(),
-        });
-
-        // b) Orderni yangilash va AliPos/Queue mantiqlarini ishga tushirish
-        // Bu yerda payment_id emas, order_id ni uzatayotganingizga e'tibor bering!
-        await this.orderService.markAsPaid(order.id);
-      }
-
-      return {
-        click_trans_id,
-        merchant_trans_id,
-        merchant_confirm_id: paymentTransaction.id.toString(),
-        error: '0',
-        error_note: 'SUCCESS',
-      };
+  private async handleComplete({
+    paymentTransaction,
+    click_trans_id,
+    merchant_trans_id,
+    merchant_prepare_id,
+    clickErrorCode,
+  }: {
+    paymentTransaction: PaymentTransaction;
+    click_trans_id: string;
+    merchant_trans_id: string;
+    merchant_prepare_id?: string;
+    clickErrorCode: number;
+  }): Promise<ClickWebhookResponse> {
+    if (!merchant_prepare_id || merchant_prepare_id !== paymentTransaction.id) {
+      return this.error(
+        ClickErrorCodeEnum.TRANSACTION_DOES_NOT_EXIST,
+        'TRANSACTION_DOES_NOT_EXIST',
+      );
     }
 
-    return { error: '-3', error_note: 'ACTION_NOT_FOUND' };
+    if (paymentTransaction.status === PaymentStatusEnum.SUCCESS) {
+      return this.error(ClickErrorCodeEnum.ALREADY_PAID, 'ALREADY_PAID');
+    }
+
+    if (paymentTransaction.status === PaymentStatusEnum.CANCELLED) {
+      return this.error(
+        ClickErrorCodeEnum.TRANSACTION_CANCELLED,
+        'TRANSACTION_CANCELLED',
+      );
+    }
+
+    if (clickErrorCode <= -1) {
+      await this.paymentTransactionRepository.update(paymentTransaction.id, {
+        status: PaymentStatusEnum.CANCELLED,
+      });
+
+      return this.error(
+        ClickErrorCodeEnum.TRANSACTION_CANCELLED,
+        'TRANSACTION_CANCELLED',
+      );
+    }
+
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        await manager.update(
+          PaymentTransaction,
+          { id: paymentTransaction.id },
+          {
+            status: PaymentStatusEnum.SUCCESS,
+            provider_transaction_id: click_trans_id,
+          },
+        );
+
+        await manager.update(
+          Order,
+          { id: paymentTransaction.order_id },
+          { payment_status: PaymentStatusEnum.SUCCESS },
+        );
+      });
+    } catch {
+      return this.error(
+        ClickErrorCodeEnum.FAILED_TO_UPDATE_USER,
+        'FAILED_TO_UPDATE_ORDER',
+      );
+    }
+
+    return {
+      click_trans_id,
+      merchant_trans_id,
+      merchant_confirm_id: paymentTransaction.id,
+      error: ClickErrorCodeEnum.SUCCESS.toString(),
+      error_note: 'SUCCESS',
+    };
+  }
+
+  private error(code: ClickErrorCodeEnum, note: string): ClickWebhookResponse {
+    return {
+      error: code.toString(),
+      error_note: note,
+    };
+  }
+
+  private isClickAction(value: unknown): value is ClickActionEnum {
+    return (
+      typeof value === 'string' &&
+      Object.values(ClickActionEnum).includes(value as ClickActionEnum)
+    );
+  }
+
+  private isAmountEqual(orderAmount: number, requestAmount: number): boolean {
+    return Math.abs(orderAmount - requestAmount) < 0.01;
+  }
+
+  private parseClickErrorCode(value: string): number {
+    const parsed = Number(value);
+    return Number.isNaN(parsed)
+      ? ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK
+      : parsed;
   }
 }
