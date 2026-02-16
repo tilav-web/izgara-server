@@ -20,6 +20,7 @@ import { AuthRoleGuard } from '../../auth/guard/role.guard';
 import { FilterOrderDto } from '../dto/filter-order.dto';
 import { AuthStatusGuard } from '../../auth/guard/status.guard';
 import { UpdateOrderDto } from '../dto/update-order.dto';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('orders')
 export class OrdersController {
@@ -33,6 +34,7 @@ export class OrdersController {
     return this.orderService.findAll(dto);
   }
 
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @Post('/create')
   @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
   @ApiBearerAuth('access_token')

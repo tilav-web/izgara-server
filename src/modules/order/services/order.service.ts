@@ -28,6 +28,19 @@ import { UpdateOrderDto } from '../dto/update-order.dto';
 import { DeliverySettingsService } from '../../deliverySettings/delivery-settings.service';
 import { OrderStatusEnum } from '../enums/order-status.enum';
 import { OrderGateway } from '../../socket/gateways/order.gateway';
+import { generatePaymeUrl } from '../../../utils/generate-payme-url';
+import { Location } from '../../location/location.entity';
+import { OrderItem } from '../schemas/order-item.entity';
+
+type CreateOrderContext = {
+  dto: CreateOrderDto;
+  total_price: number;
+  user: User;
+  location?: Location;
+  items: OrderItem[];
+  delivery_fee: number;
+  items_price: number;
+};
 
 @Injectable()
 export class OrderService {
@@ -102,6 +115,176 @@ export class OrderService {
         removeOnFail: { age: 24 * 3600 }, // Xato bo'lganlarni bazada 24 soat saqlash (tahlil uchun)
       },
     );
+  }
+
+  private resolveDeliveryLocation(dto: CreateOrderDto, location?: Location) {
+    if (dto.order_type === OrderTypeEnum.DELIVERY && !location) {
+      throw new BadRequestException("Joylashuv ma'lumotlari topilmadi!");
+    }
+
+    return dto.order_type === OrderTypeEnum.DELIVERY ? location : undefined;
+  }
+
+  private async createAndSaveOrder({
+    dto,
+    total_price,
+    user,
+    location,
+    items,
+    delivery_fee,
+    items_price,
+    payment_method,
+  }: CreateOrderContext & {
+    payment_method:
+      | OrderPaymentMethodEnum.PAYMENT_CASH
+      | OrderPaymentMethodEnum.PAYMENT_ONLINE
+      | OrderPaymentMethodEnum.PAYMENT_TERMINAL;
+  }): Promise<Order> {
+    const deliveryLocation = this.resolveDeliveryLocation(dto, location);
+
+    const order = this.orderRepository.create({
+      order_type: dto.order_type,
+      payment_method,
+      address: dto.address,
+      user_id: user.id,
+      cash_amount: total_price,
+      total_price,
+      items_price,
+      delivery_fee,
+      customer_phone: user.phone,
+      items,
+      ...(deliveryLocation
+        ? {
+            location_id: deliveryLocation.id,
+            lat: deliveryLocation.latitude,
+            lng: deliveryLocation.longitude,
+          }
+        : {}),
+    });
+
+    await this.orderRepository.save(order);
+    return order;
+  }
+
+  // payment coin
+  private async paymentCoin({
+    dto,
+    total_price,
+    user,
+    location,
+    items,
+    delivery_fee,
+    items_price,
+  }: CreateOrderContext): Promise<Order> {
+    const coinSettings = await this.coinSettingsService.findCoinSettings();
+    const totalCoin = claculateCoin({
+      coinSettings,
+      product_price: total_price,
+    });
+
+    if (user.coin_balance < Number(totalCoin.coin_price))
+      throw new ForbiddenException('Sizda yetarli coin yoq!');
+
+    const deliveryLocation = this.resolveDeliveryLocation(dto, location);
+
+    let savedOrder: Order | null = null;
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(
+        User,
+        { id: user.id },
+        {
+          coin_balance: () => `"coin_balance" - ${totalCoin.coin_price}`,
+        },
+      );
+
+      const order = manager.create(Order, {
+        order_type: dto.order_type,
+        payment_method: OrderPaymentMethodEnum.PAYMENT_COIN,
+        address: dto.address,
+        user_id: user.id,
+        used_coins: Number(totalCoin.coin_price),
+        total_price,
+        delivery_fee,
+        items_price,
+        customer_phone: user.phone,
+        payment_status: PaymentStatusEnum.SUCCESS,
+        items,
+        ...(deliveryLocation
+          ? {
+              location_id: deliveryLocation.id,
+              lat: deliveryLocation.latitude,
+              lng: deliveryLocation.longitude,
+            }
+          : {}),
+      });
+
+      savedOrder = await manager.save(order);
+    });
+
+    if (!savedOrder) {
+      throw new BadRequestException('Order saqlanmadi!');
+    }
+
+    return savedOrder;
+  }
+
+  // payment cash
+  private async paymentCash(ctx: CreateOrderContext): Promise<Order> {
+    return this.createAndSaveOrder({
+      ...ctx,
+      payment_method: OrderPaymentMethodEnum.PAYMENT_CASH,
+    });
+  }
+
+  // payment terminal
+  private async paymentTerminal(ctx: CreateOrderContext): Promise<Order> {
+    return this.createAndSaveOrder({
+      ...ctx,
+      payment_method: OrderPaymentMethodEnum.PAYMENT_TERMINAL,
+    });
+  }
+
+  // payment online
+  private async paymentOnline(
+    ctx: CreateOrderContext,
+  ): Promise<{ url: string }> {
+    if (!ctx.dto.payment_provider) {
+      throw new BadRequestException(
+        "Online to'lov uchun provider yuborilmadi!",
+      );
+    }
+
+    const order = await this.createAndSaveOrder({
+      ...ctx,
+      payment_method: OrderPaymentMethodEnum.PAYMENT_ONLINE,
+    });
+
+    const paymentTransaction = this.paymentTransactionRepository.create({
+      order_id: order.id,
+      provider: ctx.dto.payment_provider,
+      amount: ctx.total_price,
+    });
+    await this.paymentTransactionRepository.save(paymentTransaction);
+
+    switch (ctx.dto.payment_provider) {
+      case PaymentProviderEnum.CLICK:
+        return {
+          url: generateClickUrl({
+            amount: ctx.total_price,
+            transaction_id: paymentTransaction.id,
+          }),
+        };
+      case PaymentProviderEnum.PAYME:
+        return {
+          url: generatePaymeUrl({
+            amount: ctx.total_price,
+            transaction_id: paymentTransaction.id,
+          }),
+        };
+      default:
+        throw new BadRequestException("Noma'lum to'lov provayderi!");
+    }
   }
 
   async findAll(filter: FilterOrderDto) {
@@ -231,6 +414,7 @@ export class OrderService {
     }
   }
 
+  // Bu metod controllerda chaqiriladi
   async createOrder(auth_id: number, dto: CreateOrderDto) {
     const { total_price, user, delivery_fee, items_price } =
       await this.makeOrderTotalPrice(auth_id, dto);
@@ -243,6 +427,15 @@ export class OrderService {
       throw new BadRequestException(
         `To'lov providerlaridan foydalanish uchun to'lov turi ${OrderPaymentMethodEnum.PAYMENT_ONLINE} bo'lishi kerak!`,
       );
+
+    const orderContextBase = {
+      dto,
+      total_price,
+      user,
+      items,
+      delivery_fee,
+      items_price,
+    };
 
     if (dto.order_type === OrderTypeEnum.DELIVERY) {
       if (dto.payment_method === OrderPaymentMethodEnum.PAYMENT_TERMINAL)
@@ -260,236 +453,32 @@ export class OrderService {
       );
       if (!location) throw new BadRequestException('Joylashuv topilmadi!');
 
-      // Order Payment coin
-      if (dto.payment_method === OrderPaymentMethodEnum.PAYMENT_COIN) {
-        const coinSettings = await this.coinSettingsService.findCoinSettings();
-        const totalCoin = claculateCoin({
-          coinSettings,
-          product_price: total_price,
-        });
-
-        if (user.coin_balance < Number(totalCoin.coin_price))
-          throw new ForbiddenException('Sizda yetarli coin yoq!');
-
-        // order va aliposQueue natijasini tashqarida saqlash
-        let savedOrder: Order | undefined;
-
-        await this.dataSource.transaction(async (manager) => {
-          await manager.update(
-            User,
-            { id: user.id },
-            {
-              coin_balance: () => `"coin_balance" - ${totalCoin.coin_price}`,
-            },
-          );
-
-          const order = manager.create(Order, {
-            order_type: dto.order_type,
-            payment_method: OrderPaymentMethodEnum.PAYMENT_COIN,
-            address: dto.address,
-            location_id: location.id,
-            user_id: user.id,
-            used_coins: Number(totalCoin.coin_price),
-            total_price,
-            delivery_fee,
-            items_price,
-            customer_phone: user.phone,
-            lat: location.latitude,
-            lng: location.longitude,
-            payment_status: PaymentStatusEnum.SUCCESS,
-            items,
-          });
-
-          savedOrder = await manager.save(order); // ← id bu yerda paydo bo'ladi
-          if (!savedOrder) {
-            throw new BadRequestException('Order saqlanmadi!');
-          }
-        });
-
-        return savedOrder;
-      }
-
-      // Order Payment cash
-      if (dto.payment_method === OrderPaymentMethodEnum.PAYMENT_CASH) {
-        const order = this.orderRepository.create({
-          order_type: dto.order_type,
-          payment_method: OrderPaymentMethodEnum.PAYMENT_CASH,
-          address: dto.address,
-          location_id: location.id,
-          user_id: user.id,
-          cash_amount: total_price,
-          total_price,
-          items_price,
-          delivery_fee,
-          customer_phone: user.phone,
-          lat: location.latitude,
-          lng: location.longitude,
-          items,
-        });
-
-        await this.orderRepository.save(order);
-        return order;
-      }
-
-      // Order payent online
-      if (dto.payment_method === OrderPaymentMethodEnum.PAYMENT_ONLINE) {
-        const order = this.orderRepository.create({
-          order_type: dto.order_type,
-          payment_method: OrderPaymentMethodEnum.PAYMENT_ONLINE,
-          address: dto.address,
-          location_id: location.id,
-          user_id: user.id,
-          cash_amount: total_price,
-          total_price,
-          items_price,
-          delivery_fee,
-          customer_phone: user.phone,
-          lat: location.latitude,
-          lng: location.longitude,
-          items,
-        });
-        await this.orderRepository.save(order);
-
-        const paymentTransaction = this.paymentTransactionRepository.create({
-          order_id: order.id,
-          provider: dto.payment_provider,
-          amount: total_price,
-        });
-        await this.paymentTransactionRepository.save(paymentTransaction);
-        switch (dto.payment_provider) {
-          case PaymentProviderEnum.CLICK:
-            return {
-              url: generateClickUrl({
-                amount: total_price,
-                transaction_id: paymentTransaction.id,
-              }),
-            };
-          case PaymentProviderEnum.PAYME:
-            return { url: '' };
-          default:
-            throw new BadRequestException("Noma'lum to'lov provayderi!");
-        }
+      const ctx: CreateOrderContext = { ...orderContextBase, location };
+      switch (dto.payment_method) {
+        case OrderPaymentMethodEnum.PAYMENT_COIN:
+          return this.paymentCoin(ctx);
+        case OrderPaymentMethodEnum.PAYMENT_CASH:
+          return this.paymentCash(ctx);
+        case OrderPaymentMethodEnum.PAYMENT_ONLINE:
+          return this.paymentOnline(ctx);
+        default:
+          throw new BadRequestException("Noma'lum to'lov usuli!");
       }
     }
 
     if (dto.order_type === OrderTypeEnum.PICKUP) {
-      if (dto.payment_method === OrderPaymentMethodEnum.PAYMENT_COIN) {
-        const coinSettings = await this.coinSettingsService.findCoinSettings();
-        const totalCoin = claculateCoin({
-          coinSettings,
-          product_price: total_price,
-        });
-
-        if (user.coin_balance < Number(totalCoin.coin_price))
-          throw new ForbiddenException('Sizda yetarli coin yoq!');
-
-        // order va aliposQueue natijasini tashqarida saqlash
-        let savedOrder: Order | undefined;
-
-        await this.dataSource.transaction(async (manager) => {
-          await manager.update(
-            User,
-            { id: user.id },
-            {
-              coin_balance: () => `"coin_balance" - ${totalCoin.coin_price}`,
-            },
-          );
-
-          const order = manager.create(Order, {
-            order_type: dto.order_type,
-            payment_method: OrderPaymentMethodEnum.PAYMENT_COIN,
-            address: dto.address,
-            user_id: user.id,
-            used_coins: Number(totalCoin.coin_price),
-            total_price,
-            items_price,
-            delivery_fee,
-            customer_phone: user.phone,
-            payment_status: PaymentStatusEnum.SUCCESS,
-            items,
-          });
-
-          savedOrder = await manager.save(order);
-          if (!savedOrder) {
-            throw new BadRequestException('Order saqlanmadi!');
-          }
-        });
-
-        return savedOrder;
-      }
-
-      // Order Payment cash
-      if (dto.payment_method === OrderPaymentMethodEnum.PAYMENT_CASH) {
-        const order = this.orderRepository.create({
-          order_type: dto.order_type,
-          payment_method: OrderPaymentMethodEnum.PAYMENT_CASH,
-          address: dto.address,
-          user_id: user.id,
-          cash_amount: total_price,
-          total_price,
-          items_price,
-          delivery_fee,
-          customer_phone: user.phone,
-          items,
-        });
-
-        await this.orderRepository.save(order);
-        return order;
-      }
-
-      // Order payent online
-      if (dto.payment_method === OrderPaymentMethodEnum.PAYMENT_ONLINE) {
-        const order = this.orderRepository.create({
-          order_type: dto.order_type,
-          payment_method: OrderPaymentMethodEnum.PAYMENT_ONLINE,
-          address: dto.address,
-          user_id: user.id,
-          cash_amount: total_price,
-          total_price,
-          items_price,
-          delivery_fee,
-          customer_phone: user.phone,
-          items,
-        });
-        await this.orderRepository.save(order);
-
-        const paymentTransaction = this.paymentTransactionRepository.create({
-          order_id: order.id,
-          provider: dto.payment_provider,
-          amount: total_price,
-        });
-        await this.paymentTransactionRepository.save(paymentTransaction);
-        switch (dto.payment_provider) {
-          case PaymentProviderEnum.CLICK:
-            return {
-              url: generateClickUrl({
-                amount: total_price,
-                transaction_id: paymentTransaction.id,
-              }),
-            };
-          case PaymentProviderEnum.PAYME:
-            return { url: '' };
-          default:
-            throw new BadRequestException("Noma'lum to'lov provayderi!");
-        }
-      }
-
-      if (dto.payment_method === OrderPaymentMethodEnum.PAYMENT_TERMINAL) {
-        const order = this.orderRepository.create({
-          order_type: dto.order_type,
-          payment_method: OrderPaymentMethodEnum.PAYMENT_TERMINAL,
-          address: dto.address,
-          user_id: user.id,
-          cash_amount: total_price,
-          total_price,
-          items_price,
-          delivery_fee,
-          customer_phone: user.phone,
-          items,
-        });
-
-        await this.orderRepository.save(order);
-        return order;
+      const ctx: CreateOrderContext = { ...orderContextBase };
+      switch (dto.payment_method) {
+        case OrderPaymentMethodEnum.PAYMENT_COIN:
+          return this.paymentCoin(ctx);
+        case OrderPaymentMethodEnum.PAYMENT_CASH:
+          return this.paymentCash(ctx);
+        case OrderPaymentMethodEnum.PAYMENT_ONLINE:
+          return this.paymentOnline(ctx);
+        case OrderPaymentMethodEnum.PAYMENT_TERMINAL:
+          return this.paymentTerminal(ctx);
+        default:
+          throw new BadRequestException("Noma'lum to'lov usuli!");
       }
     }
     throw new BadRequestException("Noma'lum order turi!");

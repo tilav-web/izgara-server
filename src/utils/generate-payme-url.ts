@@ -1,26 +1,26 @@
-export const generateClickUrl = ({
+export const generatePaymeUrl = ({
   amount,
-  order_id,
+  transaction_id,
 }: {
   amount: number;
-  order_id: string;
+  transaction_id: string;
 }) => {
-  const service_id = process.env.CLICK_SERVICE_ID;
-  const merchant_id = process.env.CLICK_MERCHANT_ID;
-  const return_url = process.env.CLICK_RETURN_URL;
+  const merchant_id = process.env.PAYME_MERCHANT_ID;
 
-  if (!service_id || !merchant_id || !return_url) {
-    throw new Error("Click to'lov tizimi sozlamalari to'liq emas!");
+  if (!merchant_id) {
+    throw new Error("Payme to'lov tizimi sozlamalari to'liq emas!");
   }
 
-  // 2. Parametrlarni yig'amiz
-  const params = new URLSearchParams({
-    service_id: service_id,
-    merchant_id: merchant_id,
-    amount: Number(amount).toFixed(2),
-    transaction_param: order_id,
-    return_url: return_url,
-  });
+  // Payme summani tiyinda qabul qiladi (masalan: 15000.00 so'm -> 1500000 tiyin)
+  const amountInTiyin = Math.round(amount * 100);
 
-  return `https://my.click.uz/services/pay?${params.toString()}`;
+  // Payme protokoli bo'yicha parametrlarni tayyorlaymiz
+  // 'm' - merchant_id
+  // 'ac.order_id' - sizning tizimingizdagi buyurtma identifikatori
+  // 'a' - to'lov summasi (tiyinda)
+  const params = `m=${merchant_id};ac.order_id=${transaction_id};a=${amountInTiyin}`;
+
+  const encodedParams = Buffer.from(params).toString('base64');
+
+  return `https://checkout.paycom.uz/${encodedParams}`;
 };

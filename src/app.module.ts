@@ -15,12 +15,14 @@ import { DeliverySettingsModule } from './modules/deliverySettings/delivery-sett
 import { BullModule } from '@nestjs/bullmq';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { OrderModule } from './modules/order/order.module';
+import { ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ThrottlerModule.forRoot(),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
