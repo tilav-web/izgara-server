@@ -41,7 +41,7 @@ export class PaymeController {
 
   constructor(private readonly paymeService: PaymeService) {}
 
-  @Post()
+  @Post('webhook')
   @HttpCode(200)
   @Header('Content-Type', 'application/json')
   async handlePayme(
