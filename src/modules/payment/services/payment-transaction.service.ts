@@ -3,8 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { OrderPaymentMethodEnum } from '../../order/enums/order-payment-status.enum';
 import { OrderStatusEnum } from '../../order/enums/order-status.enum';
 import { OrderService } from '../../order/services/order.service';
@@ -13,15 +11,10 @@ import { generatePaymeUrl } from '../../../utils/generate-payme-url';
 import { CreatePaymentUrlDto } from '../dto/create-payment-url.dto';
 import { PaymentProviderEnum } from '../enums/payment-provider.enum';
 import { PaymentStatusEnum } from '../enums/payment-status.enum';
-import { PaymentTransaction } from '../payment-transaction.entity';
 
 @Injectable()
 export class PaymentTransactionService {
-  constructor(
-    @InjectRepository(PaymentTransaction)
-    private readonly paymentTransactionRepository: Repository<PaymentTransaction>,
-    private readonly orderService: OrderService,
-  ) {}
+  constructor(private readonly orderService: OrderService) {}
 
   async createPaymentUrl(auth_id: number, dto: CreatePaymentUrlDto) {
     const order = await this.orderService.findOneMoreOptions({
@@ -55,20 +48,10 @@ export class PaymentTransactionService {
       throw new BadRequestException('Buyurtma summasi noto`g`ri!');
     }
 
-    const paymentTransaction = this.paymentTransactionRepository.create({
-      order_id: order.id,
-      provider: dto.provider,
-      amount,
-      status: PaymentStatusEnum.PENDING,
-    });
-
-    const savedTransaction =
-      await this.paymentTransactionRepository.save(paymentTransaction);
-
     const url = this.makePaymentUrl({
       provider: dto.provider,
       amount,
-      transaction_id: savedTransaction.id,
+      order_id: order.id,
     });
 
     return {
@@ -79,17 +62,17 @@ export class PaymentTransactionService {
   private makePaymentUrl({
     provider,
     amount,
-    transaction_id,
+    order_id,
   }: {
     provider: PaymentProviderEnum;
     amount: number;
-    transaction_id: string;
+    order_id: string;
   }): string {
     switch (provider) {
       case PaymentProviderEnum.CLICK:
-        return generateClickUrl({ amount, transaction_id });
+        return generateClickUrl({ amount, order_id });
       case PaymentProviderEnum.PAYME:
-        return generatePaymeUrl({ amount, transaction_id });
+        return generatePaymeUrl({ amount, order_id });
       default:
         throw new BadRequestException("Noma'lum to'lov provayderi!");
     }

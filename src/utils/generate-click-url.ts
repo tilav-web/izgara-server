@@ -1,9 +1,9 @@
 export const generateClickUrl = ({
   amount,
-  transaction_id,
+  order_id,
 }: {
   amount: number;
-  transaction_id: string;
+  order_id: string;
 }) => {
   const service_id = process.env.CLICK_SERVICE_ID;
   const merchant_id = process.env.CLICK_MERCHANT_ID;
@@ -18,7 +18,7 @@ export const generateClickUrl = ({
     service_id: service_id,
     merchant_id: merchant_id,
     amount: amount.toFixed(2),
-    transaction_param: transaction_id,
+    transaction_param: order_id,
     merchant_user_id: merchant_user_id,
     return_url: return_url,
   });

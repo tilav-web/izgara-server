@@ -75,19 +75,10 @@ export class PaymeService {
       throw new BadRequestException('Buyurtma summasi noto`g`ri!');
     }
 
-    const paymentTransaction = this.transactionRepo.create({
-      order_id,
-      provider: PaymentProviderEnum.PAYME,
-      amount,
-      status: PaymentStatusEnum.PENDING,
-    });
-    const savedTransaction =
-      await this.transactionRepo.save(paymentTransaction);
-
     return {
       url: generatePaymeUrl({
         amount,
-        transaction_id: savedTransaction.id,
+        order_id,
       }),
     };
   }
@@ -147,21 +138,36 @@ export class PaymeService {
       );
     }
 
-    const paymentTransaction = await this.transactionRepo.findOne({
-      where: {
-        id: parsed.account.order_id,
-      },
-      relations: { order: true },
+    const order = await this.orderRepo.findOneBy({
+      id: parsed.account.order_id,
     });
-
-    if (!paymentTransaction) {
-      return this.invalidAccountError(id);
-    }
-
-    const order = paymentTransaction.order;
 
     if (!order) {
       return this.invalidAccountError(id);
+    }
+
+    if (order.payment_status === PaymentStatusEnum.SUCCESS) {
+      return this.error(
+        PaymeErrorCodeEnum.CANNOT_PERFORM_OPERATION,
+        'Order already paid',
+        id,
+      );
+    }
+
+    if (order.status === OrderStatusEnum.CANCELLED) {
+      return this.error(
+        PaymeErrorCodeEnum.CANNOT_PERFORM_OPERATION,
+        'Order is cancelled',
+        id,
+      );
+    }
+
+    if (order.payment_method !== OrderPaymentMethodEnum.PAYMENT_ONLINE) {
+      return this.error(
+        PaymeErrorCodeEnum.CANNOT_PERFORM_OPERATION,
+        'Order does not support online payments',
+        id,
+      );
     }
 
     const orderAmountInTiyin = this.toTiyin(order.total_price);
@@ -203,21 +209,36 @@ export class PaymeService {
       );
     }
 
-    const paymentTransaction = await this.transactionRepo.findOne({
-      where: {
-        id: parsed.account.order_id,
-      },
-      relations: { order: true },
+    const order = await this.orderRepo.findOneBy({
+      id: parsed.account.order_id,
     });
-
-    if (!paymentTransaction) {
-      return this.invalidAccountError(id);
-    }
-
-    const order = paymentTransaction?.order;
 
     if (!order) {
       return this.invalidAccountError(id);
+    }
+
+    if (order.payment_status === PaymentStatusEnum.SUCCESS) {
+      return this.error(
+        PaymeErrorCodeEnum.CANNOT_PERFORM_OPERATION,
+        'Order already paid',
+        id,
+      );
+    }
+
+    if (order.status === OrderStatusEnum.CANCELLED) {
+      return this.error(
+        PaymeErrorCodeEnum.CANNOT_PERFORM_OPERATION,
+        'Order is cancelled',
+        id,
+      );
+    }
+
+    if (order.payment_method !== OrderPaymentMethodEnum.PAYMENT_ONLINE) {
+      return this.error(
+        PaymeErrorCodeEnum.CANNOT_PERFORM_OPERATION,
+        'Order does not support online payments',
+        id,
+      );
     }
 
     const orderAmountInTiyin = this.toTiyin(order.total_price);
@@ -256,7 +277,7 @@ export class PaymeService {
     }
 
     const transaction = this.transactionRepo.create({
-      order_id: parsed.account.order_id,
+      order_id: order.id,
       provider: PaymentProviderEnum.PAYME,
       provider_transaction_id: parsed.id,
       amount: this.toSom(parsed.amount),
@@ -567,11 +588,8 @@ export class PaymeService {
     }
 
     const method = body.method;
-    const params = body.params as {
-      amount: number;
-      account: { order_id: string };
-    };
-    const id = params?.account?.order_id ?? null;
+    const params = body.params;
+    const requestId = body.id;
 
     if (!this.isPaymeMethod(method)) {
       return null;
@@ -581,14 +599,19 @@ export class PaymeService {
       return null;
     }
 
-    if (typeof id !== 'string' && id !== null) {
+    if (
+      typeof requestId !== 'string' &&
+      typeof requestId !== 'number' &&
+      requestId !== null &&
+      typeof requestId !== 'undefined'
+    ) {
       return null;
     }
 
     return {
       method,
       params,
-      id,
+      id: requestId === undefined ? null : String(requestId),
     };
   }
 

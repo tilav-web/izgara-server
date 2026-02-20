@@ -64,19 +64,10 @@ export class ClickService {
       throw new BadRequestException('Buyurtma summasi noto`g`ri!');
     }
 
-    const paymentTransaction = this.paymentTransactionRepository.create({
-      order_id,
-      provider: PaymentProviderEnum.CLICK,
-      amount,
-      status: PaymentStatusEnum.PENDING,
-    });
-    const savedTransaction =
-      await this.paymentTransactionRepository.save(paymentTransaction);
-
     return {
       url: generateClickUrl({
         amount,
-        transaction_id: savedTransaction.id,
+        order_id,
       }),
     };
   }
@@ -132,23 +123,33 @@ export class ClickService {
       );
     }
 
-    const paymentTransaction = await this.paymentTransactionRepository.findOne({
-      where: {
-        id: merchant_trans_id,
-        provider: PaymentProviderEnum.CLICK,
-      },
-      relations: { order: true },
-    });
-
-    if (!paymentTransaction) {
+    const order = await this.orderService.findById(merchant_trans_id);
+    if (!order) {
       return this.error(
         ClickErrorCodeEnum.USER_DOES_NOT_EXIST,
-        'TRANSACTION_NOT_FOUND',
+        'ORDER_NOT_FOUND',
       );
     }
 
-    const order = paymentTransaction.order;
     const requestAmount = Number(amount);
+
+    if (order.payment_method !== OrderPaymentMethodEnum.PAYMENT_ONLINE) {
+      return this.error(
+        ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK,
+        'ORDER_PAYMENT_METHOD_INVALID',
+      );
+    }
+
+    if (order.status === OrderStatusEnum.CANCELLED) {
+      return this.error(
+        ClickErrorCodeEnum.TRANSACTION_CANCELLED,
+        'ORDER_CANCELLED',
+      );
+    }
+
+    if (order.payment_status === PaymentStatusEnum.SUCCESS) {
+      return this.error(ClickErrorCodeEnum.ALREADY_PAID, 'ALREADY_PAID');
+    }
 
     if (!this.isAmountEqual(Number(order.total_price), requestAmount)) {
       return this.error(ClickErrorCodeEnum.INVALID_AMOUNT, 'INVALID_AMOUNT');
@@ -156,10 +157,31 @@ export class ClickService {
 
     if (action === ClickActionEnum.PREPARE) {
       return this.handlePrepare({
-        paymentTransaction,
+        order,
         click_trans_id,
         merchant_trans_id,
       });
+    }
+
+    if (!merchant_prepare_id) {
+      return this.error(
+        ClickErrorCodeEnum.TRANSACTION_DOES_NOT_EXIST,
+        'TRANSACTION_DOES_NOT_EXIST',
+      );
+    }
+
+    const paymentTransaction =
+      await this.paymentTransactionRepository.findOneBy({
+        id: merchant_prepare_id,
+        order_id: order.id,
+        provider: PaymentProviderEnum.CLICK,
+      });
+
+    if (!paymentTransaction) {
+      return this.error(
+        ClickErrorCodeEnum.TRANSACTION_DOES_NOT_EXIST,
+        'TRANSACTION_DOES_NOT_EXIST',
+      );
     }
 
     return this.handleComplete({
@@ -172,14 +194,58 @@ export class ClickService {
   }
 
   private async handlePrepare({
-    paymentTransaction,
+    order,
     click_trans_id,
     merchant_trans_id,
   }: {
-    paymentTransaction: PaymentTransaction;
+    order: Order;
     click_trans_id: string;
     merchant_trans_id: string;
   }): Promise<ClickWebhookResponse> {
+    const existingByProviderTx =
+      await this.paymentTransactionRepository.findOneBy({
+        provider: PaymentProviderEnum.CLICK,
+        provider_transaction_id: click_trans_id,
+      });
+
+    if (existingByProviderTx && existingByProviderTx.order_id !== order.id) {
+      return this.error(
+        ClickErrorCodeEnum.TRANSACTION_DOES_NOT_EXIST,
+        'TRANSACTION_DOES_NOT_EXIST',
+      );
+    }
+
+    const paymentTransaction =
+      existingByProviderTx ??
+      (await this.paymentTransactionRepository.findOne({
+        where: {
+          order_id: order.id,
+          provider: PaymentProviderEnum.CLICK,
+        },
+        order: {
+          created_at: 'DESC',
+        },
+      }));
+
+    if (!paymentTransaction) {
+      const created = this.paymentTransactionRepository.create({
+        order_id: order.id,
+        provider: PaymentProviderEnum.CLICK,
+        provider_transaction_id: click_trans_id,
+        amount: Number(order.total_price),
+        status: PaymentStatusEnum.PENDING,
+      });
+      const saved = await this.paymentTransactionRepository.save(created);
+
+      return {
+        click_trans_id,
+        merchant_trans_id,
+        merchant_prepare_id: saved.id,
+        error: ClickErrorCodeEnum.SUCCESS.toString(),
+        error_note: 'SUCCESS',
+      };
+    }
+
     if (paymentTransaction.status === PaymentStatusEnum.SUCCESS) {
       return this.error(ClickErrorCodeEnum.ALREADY_PAID, 'ALREADY_PAID');
     }

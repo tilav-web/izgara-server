@@ -20,7 +20,6 @@ import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PaymentProviderEnum } from '../../payment/enums/payment-provider.enum';
-import { PaymentTransaction } from '../../payment/payment-transaction.entity';
 import { generateClickUrl } from '../../../utils/generate-click-url';
 import { FilterOrderDto } from '../dto/filter-order.dto';
 import { DataSource } from 'typeorm';
@@ -47,8 +46,6 @@ export class OrderService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-    @InjectRepository(PaymentTransaction)
-    private readonly paymentTransactionRepository: Repository<PaymentTransaction>,
     @InjectQueue('alipos-queue') private readonly aliposQueue: Queue,
     private readonly userService: UserService,
     private readonly productService: ProductService,
@@ -260,26 +257,19 @@ export class OrderService {
       payment_method: OrderPaymentMethodEnum.PAYMENT_ONLINE,
     });
 
-    const paymentTransaction = this.paymentTransactionRepository.create({
-      order_id: order.id,
-      provider: ctx.dto.payment_provider,
-      amount: ctx.total_price,
-    });
-    await this.paymentTransactionRepository.save(paymentTransaction);
-
     switch (ctx.dto.payment_provider) {
       case PaymentProviderEnum.CLICK:
         return {
           url: generateClickUrl({
             amount: ctx.total_price,
-            transaction_id: paymentTransaction.id,
+            order_id: order.id,
           }),
         };
       case PaymentProviderEnum.PAYME:
         return {
           url: generatePaymeUrl({
             amount: ctx.total_price,
-            transaction_id: paymentTransaction.id,
+            order_id: order.id,
           }),
         };
       default:
