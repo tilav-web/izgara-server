@@ -365,6 +365,20 @@ export class PaymeService {
       );
     }
 
+    const successfulForOrder: PaymentTransaction | null =
+      await this.transactionRepo.findOneBy({
+        order_id: transaction.order_id,
+        status: PaymentStatusEnum.SUCCESS,
+      });
+
+    if (successfulForOrder && successfulForOrder.id !== transaction.id) {
+      return this.error(
+        PaymeErrorCodeEnum.CANNOT_PERFORM_OPERATION,
+        'Order already paid',
+        id,
+      );
+    }
+
     if (transaction.status !== PaymentStatusEnum.SUCCESS) {
       await this.dataSource.transaction(async (manager) => {
         await manager.update(

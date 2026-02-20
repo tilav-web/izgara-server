@@ -302,6 +302,16 @@ export class ClickService {
       );
     }
 
+    const successfulForOrder =
+      await this.paymentTransactionRepository.findOneBy({
+        order_id: paymentTransaction.order_id,
+        status: PaymentStatusEnum.SUCCESS,
+      });
+
+    if (successfulForOrder && successfulForOrder.id !== paymentTransaction.id) {
+      return this.error(ClickErrorCodeEnum.ALREADY_PAID, 'ALREADY_PAID');
+    }
+
     if (clickErrorCode <= -1) {
       await this.paymentTransactionRepository.update(paymentTransaction.id, {
         status: PaymentStatusEnum.CANCELLED,
