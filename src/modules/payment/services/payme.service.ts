@@ -455,6 +455,16 @@ export class PaymeService {
     );
 
     if (transaction.status === PaymentStatusEnum.CANCELLED) {
+      const cancelReason =
+        typeof parsed.reason === 'number'
+          ? parsed.reason
+          : (transaction.cancel_reason ?? 0);
+
+      if (transaction.cancel_reason !== cancelReason) {
+        transaction.cancel_reason = cancelReason;
+        await this.transactionRepo.save(transaction);
+      }
+
       return {
         result: {
           transaction: transaction.id,
@@ -469,6 +479,8 @@ export class PaymeService {
     }
 
     transaction.status = PaymentStatusEnum.CANCELLED;
+    transaction.cancel_reason =
+      typeof parsed.reason === 'number' ? parsed.reason : 0;
     await this.transactionRepo.save(transaction);
 
     return {
@@ -543,7 +555,11 @@ export class PaymeService {
             : 0,
         transaction: transaction.id,
         state,
-        reason: null,
+        reason:
+          state === PaymeTransactionStateEnum.CANCELLED_FROM_CREATED ||
+          state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
+            ? (transaction.cancel_reason ?? 0)
+            : null,
       },
       id,
     };
@@ -600,7 +616,11 @@ export class PaymeService {
                 : 0,
             transaction: transaction.id,
             state,
-            reason: null,
+            reason:
+              state === PaymeTransactionStateEnum.CANCELLED_FROM_CREATED ||
+              state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
+                ? (transaction.cancel_reason ?? 0)
+                : null,
           };
         }),
       },

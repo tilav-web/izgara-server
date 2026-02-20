@@ -32,6 +32,9 @@ export class PaymentTransaction {
   @Column({ type: 'bigint', nullable: true })
   provider_create_time: number;
 
+  @Column({ type: 'int', nullable: true })
+  cancel_reason: number | null;
+
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
 
