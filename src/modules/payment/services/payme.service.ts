@@ -203,9 +203,19 @@ export class PaymeService {
       );
     }
 
-    const order = await this.orderRepo.findOneBy({
-      id: parsed.account.order_id,
+    const paymentTransaction = await this.transactionRepo.findOne({
+      where: {
+        id: parsed.account.order_id,
+      },
+      relations: { order: true },
     });
+
+    if (!paymentTransaction) {
+      return this.invalidAccountError(id);
+    }
+
+    const order = paymentTransaction?.order;
+
     if (!order) {
       return this.invalidAccountError(id);
     }
