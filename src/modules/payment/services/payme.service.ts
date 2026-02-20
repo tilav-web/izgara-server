@@ -543,15 +543,18 @@ export class PaymeService {
   }
 
   private parseRequest(body: unknown): ParsedRpcRequest | null {
-    console.log(body);
-
     if (!this.isRecord(body)) {
       return null;
     }
 
+    console.log(body);
+
     const method = body.method;
-    const params = body.params;
-    const id = body.order_id;
+    const params = body.params as {
+      amount: number;
+      account: { order_id: string };
+    };
+    const id = params?.account?.order_id ?? null;
 
     if (!this.isPaymeMethod(method)) {
       return null;
