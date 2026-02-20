@@ -59,7 +59,9 @@ export class PaymeService {
     }
 
     if (order.status === OrderStatusEnum.CANCELLED) {
-      throw new BadRequestException('Bekor qilingan buyurtma uchun to`lov qilib bo`lmaydi!');
+      throw new BadRequestException(
+        'Bekor qilingan buyurtma uchun to`lov qilib bo`lmaydi!',
+      );
     }
 
     if (order.payment_method !== OrderPaymentMethodEnum.PAYMENT_ONLINE) {
@@ -79,7 +81,8 @@ export class PaymeService {
       amount,
       status: PaymentStatusEnum.PENDING,
     });
-    const savedTransaction = await this.transactionRepo.save(paymentTransaction);
+    const savedTransaction =
+      await this.transactionRepo.save(paymentTransaction);
 
     return {
       url: generatePaymeUrl({
@@ -129,7 +132,7 @@ export class PaymeService {
 
   private async checkPerformTransaction(
     params: unknown,
-    id: number | null,
+    id: string | null,
   ): Promise<PaymeRpcResponse<{ allow: boolean }>> {
     const parsed = this.parseCheckPerformParams(params);
     if (!parsed) {
@@ -166,7 +169,7 @@ export class PaymeService {
 
   private async createTransaction(
     params: unknown,
-    id: number | null,
+    id: string | null,
   ): Promise<
     PaymeRpcResponse<{
       create_time: number;
@@ -255,7 +258,7 @@ export class PaymeService {
 
   private async performTransaction(
     params: unknown,
-    id: number | null,
+    id: string | null,
   ): Promise<
     PaymeRpcResponse<{
       transaction: string;
@@ -330,7 +333,7 @@ export class PaymeService {
 
   private async cancelTransaction(
     params: unknown,
-    id: number | null,
+    id: string | null,
   ): Promise<
     PaymeRpcResponse<{
       transaction: string;
@@ -400,7 +403,7 @@ export class PaymeService {
 
   private async checkTransaction(
     params: unknown,
-    id: number | null,
+    id: string | null,
   ): Promise<
     PaymeRpcResponse<{
       create_time: number;
@@ -463,7 +466,7 @@ export class PaymeService {
 
   private async getStatement(
     params: unknown,
-    id: number | null,
+    id: string | null,
   ): Promise<PaymeRpcResponse<{ transactions: Record<string, unknown>[] }>> {
     const parsed = this.parseGetStatementParams(params);
     if (!parsed) {
@@ -522,7 +525,7 @@ export class PaymeService {
 
   private setFiscalData(
     params: unknown,
-    id: number | null,
+    id: string | null,
   ): PaymeRpcResponse<{ success: boolean }> {
     const parsed = this.parseSetFiscalDataParams(params);
     if (!parsed) {
@@ -546,7 +549,7 @@ export class PaymeService {
 
     const method = body.method;
     const params = body.params;
-    const id = body.id;
+    const id = body.order_id;
 
     if (!this.isPaymeMethod(method)) {
       return null;
@@ -556,7 +559,7 @@ export class PaymeService {
       return null;
     }
 
-    if ((typeof id !== 'number' || !Number.isInteger(id)) && id !== null) {
+    if (typeof id !== 'string' && id !== null) {
       return null;
     }
 
@@ -723,7 +726,7 @@ export class PaymeService {
     return PaymeTransactionStateEnum.CREATED;
   }
 
-  private invalidAccountError(id: number | null): PaymeErrorResponse {
+  private invalidAccountError(id: string | null): PaymeErrorResponse {
     return {
       error: {
         code: PaymeErrorCodeEnum.INVALID_ACCOUNT,
@@ -741,7 +744,7 @@ export class PaymeService {
   private error(
     code: PaymeErrorCodeEnum,
     message: string,
-    id: number | null,
+    id: string | null,
     data?: string,
   ): PaymeErrorResponse {
     return {

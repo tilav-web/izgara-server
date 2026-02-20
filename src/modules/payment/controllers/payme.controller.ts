@@ -1,20 +1,14 @@
 import {
   Body,
   Controller,
-  Get,
   Header,
   Headers,
   HttpCode,
-  Param,
   Post,
   Req,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth } from '@nestjs/swagger';
 import { timingSafeEqual } from 'crypto';
 import type { Request } from 'express';
-import { AuthStatusGuard } from '../../auth/guard/status.guard';
 import { PaymeErrorCodeEnum } from '../enums/payme-error-code.enum';
 import { PaymeService } from '../services/payme.service';
 import { PaymeRpcResponse } from '../types/payme.types';
@@ -62,20 +56,6 @@ export class PaymeController {
     }
 
     return this.paymeService.handleRequest(body);
-  }
-
-  @Get('url/:order_id')
-  @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
-  @ApiBearerAuth('access_token')
-  async getPendingPaymeUrl(
-    @Req() req: Request,
-    @Param('order_id') order_id: string,
-  ) {
-    const auth = req.user as { id: number };
-    return this.paymeService.getPendingPaymentUrl({
-      auth_id: auth.id,
-      order_id,
-    });
   }
 
   private isAuthorized(authorization?: string): boolean {
@@ -145,14 +125,12 @@ export class PaymeController {
     return new Set(parsed);
   }
 
-  private extractRpcId(body: unknown): number | null {
+  private extractRpcId(body: unknown): string | null {
     if (typeof body !== 'object' || body === null) {
       return null;
     }
 
-    const candidate = (body as { id?: unknown }).id;
-    return typeof candidate === 'number' && Number.isInteger(candidate)
-      ? candidate
-      : null;
+    const candidate = (body as { order_id?: unknown }).order_id;
+    return typeof candidate === 'string' ? candidate : null;
   }
 }
