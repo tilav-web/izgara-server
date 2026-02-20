@@ -12,14 +12,16 @@ export type PaymeError = {
   data?: string;
 };
 
+export type JsonRpcId = string | number | null;
+
 export type PaymeSuccessResponse<T> = {
   result: T;
-  id: string | null;
+  id: JsonRpcId;
 };
 
 export type PaymeErrorResponse = {
   error: PaymeError;
-  id: string | null;
+  id: JsonRpcId;
 };
 
 export type PaymeRpcResponse<T = Record<string, unknown>> =
@@ -29,7 +31,7 @@ export type PaymeRpcResponse<T = Record<string, unknown>> =
 export type ParsedRpcRequest = {
   method: PaymeMethodEnum;
   params: unknown;
-  id: string | null;
+  id: JsonRpcId;
 };
 
 export type AccountWithOrderId = {

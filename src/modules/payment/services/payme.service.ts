@@ -19,6 +19,7 @@ import {
   CheckPerformParams,
   CreateTransactionParams,
   GetStatementParams,
+  JsonRpcId,
   ParsedRpcRequest,
   PaymeErrorResponse,
   PaymeRpcResponse,
@@ -123,7 +124,7 @@ export class PaymeService {
 
   private async checkPerformTransaction(
     params: unknown,
-    id: string | null,
+    id: JsonRpcId,
   ): Promise<PaymeRpcResponse<{ allow: boolean }>> {
     const parsed = this.parseCheckPerformParams(params);
     if (!parsed) {
@@ -138,7 +139,7 @@ export class PaymeService {
       );
     }
 
-    const order = await this.orderRepo.findOneBy({
+    const order: Order | null = await this.orderRepo.findOneBy({
       id: parsed.account.order_id,
     });
 
@@ -184,7 +185,7 @@ export class PaymeService {
 
   private async createTransaction(
     params: unknown,
-    id: string | null,
+    id: JsonRpcId,
   ): Promise<
     PaymeRpcResponse<{
       create_time: number;
@@ -209,7 +210,7 @@ export class PaymeService {
       );
     }
 
-    const order = await this.orderRepo.findOneBy({
+    const order: Order | null = await this.orderRepo.findOneBy({
       id: parsed.account.order_id,
     });
 
@@ -250,10 +251,11 @@ export class PaymeService {
       );
     }
 
-    const existing = await this.transactionRepo.findOneBy({
-      provider: PaymentProviderEnum.PAYME,
-      provider_transaction_id: parsed.id,
-    });
+    const existing: PaymentTransaction | null =
+      await this.transactionRepo.findOneBy({
+        provider: PaymentProviderEnum.PAYME,
+        provider_transaction_id: parsed.id,
+      });
 
     if (existing) {
       if (existing.order_id !== order.id) {
@@ -280,17 +282,19 @@ export class PaymeService {
       };
     }
 
-    const existingPending = await this.transactionRepo.findOneBy({
-      provider: PaymentProviderEnum.PAYME,
-      order_id: order.id,
-      status: PaymentStatusEnum.PENDING,
-    });
+    const existingPending: PaymentTransaction | null =
+      await this.transactionRepo.findOneBy({
+        provider: PaymentProviderEnum.PAYME,
+        order_id: order.id,
+        status: PaymentStatusEnum.PENDING,
+      });
 
     if (existingPending) {
       return this.error(
         PaymeErrorCodeEnum.ORDER_HAS_ACTIVE_TRANSACTION,
         'Order has active transaction',
         id,
+        'account.order_id',
       );
     }
 
@@ -303,7 +307,8 @@ export class PaymeService {
       status: PaymentStatusEnum.PENDING,
     });
 
-    const saved = await this.transactionRepo.save(transaction);
+    const saved: PaymentTransaction =
+      await this.transactionRepo.save(transaction);
 
     return {
       result: {
@@ -317,7 +322,7 @@ export class PaymeService {
 
   private async performTransaction(
     params: unknown,
-    id: string | null,
+    id: JsonRpcId,
   ): Promise<
     PaymeRpcResponse<{
       transaction: string;
@@ -334,19 +339,21 @@ export class PaymeService {
       );
     }
 
-    const transaction = await this.transactionRepo.findOne({
-      where: {
-        provider: PaymentProviderEnum.PAYME,
-        provider_transaction_id: parsed.id,
-      },
-      relations: { order: true },
-    });
+    const transaction: PaymentTransaction | null =
+      await this.transactionRepo.findOne({
+        where: {
+          provider: PaymentProviderEnum.PAYME,
+          provider_transaction_id: parsed.id,
+        },
+        relations: { order: true },
+      });
 
     if (!transaction) {
       return this.error(
         PaymeErrorCodeEnum.TRANSACTION_NOT_FOUND,
         'Transaction not found',
         id,
+        'id',
       );
     }
 
@@ -374,9 +381,10 @@ export class PaymeService {
       });
     }
 
-    const refreshedTransaction = await this.transactionRepo.findOneBy({
-      id: transaction.id,
-    });
+    const refreshedTransaction: PaymentTransaction | null =
+      await this.transactionRepo.findOneBy({
+        id: transaction.id,
+      });
 
     return {
       result: {
@@ -392,7 +400,7 @@ export class PaymeService {
 
   private async cancelTransaction(
     params: unknown,
-    id: string | null,
+    id: JsonRpcId,
   ): Promise<
     PaymeRpcResponse<{
       transaction: string;
@@ -409,19 +417,21 @@ export class PaymeService {
       );
     }
 
-    const transaction = await this.transactionRepo.findOne({
-      where: {
-        provider: PaymentProviderEnum.PAYME,
-        provider_transaction_id: parsed.id,
-      },
-      relations: { order: true },
-    });
+    const transaction: PaymentTransaction | null =
+      await this.transactionRepo.findOne({
+        where: {
+          provider: PaymentProviderEnum.PAYME,
+          provider_transaction_id: parsed.id,
+        },
+        relations: { order: true },
+      });
 
     if (!transaction) {
       return this.error(
         PaymeErrorCodeEnum.TRANSACTION_NOT_FOUND,
         'Transaction not found',
         id,
+        'id',
       );
     }
 
@@ -462,7 +472,7 @@ export class PaymeService {
 
   private async checkTransaction(
     params: unknown,
-    id: string | null,
+    id: JsonRpcId,
   ): Promise<
     PaymeRpcResponse<{
       create_time: number;
@@ -482,19 +492,21 @@ export class PaymeService {
       );
     }
 
-    const transaction = await this.transactionRepo.findOne({
-      where: {
-        provider: PaymentProviderEnum.PAYME,
-        provider_transaction_id: parsed.id,
-      },
-      relations: { order: true },
-    });
+    const transaction: PaymentTransaction | null =
+      await this.transactionRepo.findOne({
+        where: {
+          provider: PaymentProviderEnum.PAYME,
+          provider_transaction_id: parsed.id,
+        },
+        relations: { order: true },
+      });
 
     if (!transaction) {
       return this.error(
         PaymeErrorCodeEnum.TRANSACTION_NOT_FOUND,
         'Transaction not found',
         id,
+        'id',
       );
     }
 
@@ -525,7 +537,7 @@ export class PaymeService {
 
   private async getStatement(
     params: unknown,
-    id: string | null,
+    id: JsonRpcId,
   ): Promise<PaymeRpcResponse<{ transactions: Record<string, unknown>[] }>> {
     const parsed = this.parseGetStatementParams(params);
     if (!parsed) {
@@ -536,7 +548,7 @@ export class PaymeService {
       );
     }
 
-    const transactions = await this.transactionRepo.find({
+    const transactions: PaymentTransaction[] = await this.transactionRepo.find({
       where: {
         provider: PaymentProviderEnum.PAYME,
         created_at: Between(new Date(parsed.from), new Date(parsed.to)),
@@ -584,7 +596,7 @@ export class PaymeService {
 
   private setFiscalData(
     params: unknown,
-    id: string | null,
+    id: JsonRpcId,
   ): PaymeRpcResponse<{ success: boolean }> {
     const parsed = this.parseSetFiscalDataParams(params);
     if (!parsed) {
@@ -606,9 +618,9 @@ export class PaymeService {
       return null;
     }
 
-    const method = body.method;
-    const params = body.params;
-    const requestId = body.id;
+    const method = this.getRecordValue(body, 'method');
+    const params = this.getRecordValue(body, 'params');
+    const requestId = this.getRecordValue(body, 'id');
 
     if (!this.isPaymeMethod(method)) {
       return null;
@@ -618,19 +630,14 @@ export class PaymeService {
       return null;
     }
 
-    if (
-      typeof requestId !== 'string' &&
-      typeof requestId !== 'number' &&
-      requestId !== null &&
-      typeof requestId !== 'undefined'
-    ) {
+    if (!this.isJsonRpcId(requestId) && typeof requestId !== 'undefined') {
       return null;
     }
 
     return {
       method,
       params,
-      id: requestId === undefined ? null : String(requestId),
+      id: requestId === undefined ? null : requestId,
     };
   }
 
@@ -639,21 +646,29 @@ export class PaymeService {
       return null;
     }
 
-    const amount = params.amount;
-    const account = params.account;
+    const amount = this.getRecordValue(params, 'amount');
+    const account = this.getRecordValue(params, 'account');
 
     if (typeof amount !== 'number') {
       return null;
     }
 
-    if (!this.isRecord(account) || typeof account.order_id !== 'string') {
+    if (
+      !this.isRecord(account) ||
+      typeof this.getRecordValue(account, 'order_id') !== 'string'
+    ) {
+      return null;
+    }
+
+    const orderId = this.getRecordValue(account, 'order_id');
+    if (typeof orderId !== 'string') {
       return null;
     }
 
     return {
       amount,
       account: {
-        order_id: account.order_id,
+        order_id: orderId,
       },
     };
   }
@@ -665,10 +680,13 @@ export class PaymeService {
       return null;
     }
 
-    const id = params.id;
-    const time = params.time;
-    const amount = params.amount;
-    const account = params.account;
+    const id = this.getRecordValue(params, 'id');
+    const time = this.getRecordValue(params, 'time');
+    const amount = this.getRecordValue(params, 'amount');
+    const account = this.getRecordValue(params, 'account');
+    const orderId = this.isRecord(account)
+      ? this.getRecordValue(account, 'order_id')
+      : null;
 
     if (
       typeof id !== 'string' ||
@@ -677,7 +695,7 @@ export class PaymeService {
       time <= 0 ||
       typeof amount !== 'number' ||
       !this.isRecord(account) ||
-      typeof account.order_id !== 'string'
+      typeof orderId !== 'string'
     ) {
       return null;
     }
@@ -687,7 +705,7 @@ export class PaymeService {
       time,
       amount,
       account: {
-        order_id: account.order_id,
+        order_id: orderId,
       },
     };
   }
@@ -695,30 +713,40 @@ export class PaymeService {
   private parseTransactionIdParams(
     params: unknown,
   ): TransactionIdParams | null {
-    if (!this.isRecord(params) || typeof params.id !== 'string') {
+    if (!this.isRecord(params)) {
+      return null;
+    }
+
+    const id = this.getRecordValue(params, 'id');
+    if (typeof id !== 'string') {
       return null;
     }
 
     return {
-      id: params.id,
+      id,
     };
   }
 
   private parseCancelTransactionParams(
     params: unknown,
   ): CancelTransactionParams | null {
-    if (!this.isRecord(params) || typeof params.id !== 'string') {
+    if (!this.isRecord(params)) {
       return null;
     }
 
-    const reason = params.reason;
+    const id = this.getRecordValue(params, 'id');
+    const reason = this.getRecordValue(params, 'reason');
+
+    if (typeof id !== 'string') {
+      return null;
+    }
 
     if (typeof reason !== 'undefined' && typeof reason !== 'number') {
       return null;
     }
 
     return {
-      id: params.id,
+      id,
       reason,
     };
   }
@@ -728,8 +756,8 @@ export class PaymeService {
       return null;
     }
 
-    const from = params.from;
-    const to = params.to;
+    const from = this.getRecordValue(params, 'from');
+    const to = this.getRecordValue(params, 'to');
 
     if (
       typeof from !== 'number' ||
@@ -754,9 +782,9 @@ export class PaymeService {
       return null;
     }
 
-    const id = params.id;
-    const type = params.type;
-    const fiscalData = params.fiscal_data;
+    const id = this.getRecordValue(params, 'id');
+    const type = this.getRecordValue(params, 'type');
+    const fiscalData = this.getRecordValue(params, 'fiscal_data');
 
     if (
       typeof id !== 'string' ||
@@ -790,7 +818,7 @@ export class PaymeService {
     return PaymeTransactionStateEnum.CREATED;
   }
 
-  private invalidAccountError(id: string | null): PaymeErrorResponse {
+  private invalidAccountError(id: JsonRpcId): PaymeErrorResponse {
     return {
       error: {
         code: PaymeErrorCodeEnum.INVALID_ACCOUNT,
@@ -806,9 +834,9 @@ export class PaymeService {
   }
 
   private error(
-    code: PaymeErrorCodeEnum,
+    code: number,
     message: string,
-    id: string | null,
+    id: JsonRpcId,
     data?: string,
   ): PaymeErrorResponse {
     return {
@@ -825,10 +853,28 @@ export class PaymeService {
     return typeof value === 'object' && value !== null;
   }
 
+  private getRecordValue(
+    record: Record<string, unknown>,
+    key: string,
+  ): unknown {
+    return record[key];
+  }
+
+  private isJsonRpcId(value: unknown): value is JsonRpcId {
+    return (
+      typeof value === 'string' || typeof value === 'number' || value === null
+    );
+  }
+
   private isPaymeMethod(value: unknown): value is PaymeMethodEnum {
     return (
-      typeof value === 'string' &&
-      Object.values(PaymeMethodEnum).includes(value as PaymeMethodEnum)
+      value === PaymeMethodEnum.CHECK_PERFORM_TRANSACTION ||
+      value === PaymeMethodEnum.CREATE_TRANSACTION ||
+      value === PaymeMethodEnum.PERFORM_TRANSACTION ||
+      value === PaymeMethodEnum.CANCEL_TRANSACTION ||
+      value === PaymeMethodEnum.CHECK_TRANSACTION ||
+      value === PaymeMethodEnum.GET_STATEMENT ||
+      value === PaymeMethodEnum.SET_FISCAL_DATA
     );
   }
 
