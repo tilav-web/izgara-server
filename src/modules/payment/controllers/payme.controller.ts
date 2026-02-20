@@ -49,7 +49,10 @@ export class PaymeController {
     @Headers('authorization') authorization?: string,
     @Req() req?: Request,
   ): Promise<PaymeRpcResponse> {
+    console.log(2);
+
     if (!this.isAuthorized(authorization) || !this.isAllowedIp(req)) {
+      console.log(1);
       return {
         error: {
           code: PaymeErrorCodeEnum.INSUFFICIENT_PRIVILEGES,
