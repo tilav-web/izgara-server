@@ -543,6 +543,8 @@ export class PaymeService {
   }
 
   private parseRequest(body: unknown): ParsedRpcRequest | null {
+    console.log(body);
+
     if (!this.isRecord(body)) {
       return null;
     }

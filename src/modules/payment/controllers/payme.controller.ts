@@ -43,8 +43,6 @@ export class PaymeController {
     @Headers('authorization') authorization?: string,
     @Req() req?: Request,
   ): Promise<PaymeRpcResponse> {
-    console.log("So'rov keldi!");
-
     if (!this.isAuthorized(authorization) || !this.isAllowedIp(req)) {
       return {
         error: {
