@@ -256,6 +256,10 @@ export class PaymeService {
     });
 
     if (existing) {
+      if (existing.order_id !== order.id) {
+        return this.invalidAccountError(id);
+      }
+
       const state = this.mapPaymentStatusToPaymeState(existing.status);
 
       if (state !== PaymeTransactionStateEnum.CREATED) {
@@ -268,7 +272,7 @@ export class PaymeService {
 
       return {
         result: {
-          create_time: existing.created_at.getTime(),
+          create_time: this.resolvePaymeCreateTime(existing),
           transaction: existing.id,
           state,
         },
@@ -276,10 +280,25 @@ export class PaymeService {
       };
     }
 
+    const existingPending = await this.transactionRepo.findOneBy({
+      provider: PaymentProviderEnum.PAYME,
+      order_id: order.id,
+      status: PaymentStatusEnum.PENDING,
+    });
+
+    if (existingPending) {
+      return this.error(
+        PaymeErrorCodeEnum.ORDER_HAS_ACTIVE_TRANSACTION,
+        'Order has active transaction',
+        id,
+      );
+    }
+
     const transaction = this.transactionRepo.create({
       order_id: order.id,
       provider: PaymentProviderEnum.PAYME,
       provider_transaction_id: parsed.id,
+      provider_create_time: parsed.time,
       amount: this.toSom(parsed.amount),
       status: PaymentStatusEnum.PENDING,
     });
@@ -288,7 +307,7 @@ export class PaymeService {
 
     return {
       result: {
-        create_time: saved.created_at.getTime(),
+        create_time: this.resolvePaymeCreateTime(saved),
         transaction: saved.id,
         state: PaymeTransactionStateEnum.CREATED,
       },
@@ -486,7 +505,7 @@ export class PaymeService {
 
     return {
       result: {
-        create_time: transaction.created_at.getTime(),
+        create_time: this.resolvePaymeCreateTime(transaction),
         perform_time:
           state === PaymeTransactionStateEnum.PERFORMED
             ? transaction.updated_at.getTime()
@@ -538,12 +557,12 @@ export class PaymeService {
 
           return {
             id: transaction.provider_transaction_id,
-            time: transaction.created_at.getTime(),
+            time: this.resolvePaymeCreateTime(transaction),
             amount: this.toTiyin(transaction.amount),
             account: {
               order_id: transaction.order_id,
             },
-            create_time: transaction.created_at.getTime(),
+            create_time: this.resolvePaymeCreateTime(transaction),
             perform_time:
               state === PaymeTransactionStateEnum.PERFORMED
                 ? transaction.updated_at.getTime()
@@ -823,5 +842,13 @@ export class PaymeService {
 
   private toTiyin(amountInSom: number): number {
     return Math.round(Number(amountInSom) * 100);
+  }
+
+  private resolvePaymeCreateTime(transaction: PaymentTransaction): number {
+    if (transaction.provider_create_time) {
+      return Number(transaction.provider_create_time);
+    }
+
+    return transaction.created_at.getTime();
   }
 }

@@ -29,6 +29,9 @@ export class PaymentTransaction {
   @Column({ nullable: true })
   provider_transaction_id: string; // Click yoki Payme bergan ID
 
+  @Column({ type: 'bigint', nullable: true })
+  provider_create_time: number;
+
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
 
