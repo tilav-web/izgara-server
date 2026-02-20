@@ -131,7 +131,7 @@ export class PaymeService {
   }
 
   private async checkPerformTransaction(
-    params: unknown,
+    params: { amount: number; account: { order_id: string } },
     id: string | null,
   ): Promise<PaymeRpcResponse<{ allow: boolean }>> {
     const parsed = this.parseCheckPerformParams(params);
@@ -147,9 +147,18 @@ export class PaymeService {
       );
     }
 
-    const order = await this.orderRepo.findOneBy({
-      id: parsed.account.order_id,
+    const paymentTransaction = await this.transactionRepo.findOne({
+      where: {
+        id: parsed.account.order_id,
+      },
+      relations: { order: true },
     });
+
+    if (!paymentTransaction) {
+      return this.invalidAccountError(id);
+    }
+
+    const order = paymentTransaction.order;
 
     if (!order) {
       return this.invalidAccountError(id);
@@ -546,8 +555,6 @@ export class PaymeService {
     if (!this.isRecord(body)) {
       return null;
     }
-
-    console.log(body);
 
     const method = body.method;
     const params = body.params as {
