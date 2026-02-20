@@ -131,7 +131,7 @@ export class PaymeService {
   }
 
   private async checkPerformTransaction(
-    params: { amount: number; account: { order_id: string } },
+    params: unknown,
     id: string | null,
   ): Promise<PaymeRpcResponse<{ allow: boolean }>> {
     const parsed = this.parseCheckPerformParams(params);
