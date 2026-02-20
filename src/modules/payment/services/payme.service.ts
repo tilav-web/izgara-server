@@ -455,10 +455,7 @@ export class PaymeService {
     );
 
     if (transaction.status === PaymentStatusEnum.CANCELLED) {
-      const cancelReason =
-        typeof parsed.reason === 'number'
-          ? parsed.reason
-          : (transaction.cancel_reason ?? 0);
+      const cancelReason = this.resolveCancelReason(transaction, parsed.reason);
 
       if (transaction.cancel_reason !== cancelReason) {
         transaction.cancel_reason = cancelReason;
@@ -479,8 +476,10 @@ export class PaymeService {
     }
 
     transaction.status = PaymentStatusEnum.CANCELLED;
-    transaction.cancel_reason =
-      typeof parsed.reason === 'number' ? parsed.reason : 0;
+    transaction.cancel_reason = this.resolveCancelReason(
+      transaction,
+      parsed.reason,
+    );
     await this.transactionRepo.save(transaction);
 
     return {
@@ -555,11 +554,7 @@ export class PaymeService {
             : 0,
         transaction: transaction.id,
         state,
-        reason:
-          state === PaymeTransactionStateEnum.CANCELLED_FROM_CREATED ||
-          state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
-            ? (transaction.cancel_reason ?? 0)
-            : null,
+        reason: this.resolveReasonByState(transaction, state),
       },
       id,
     };
@@ -616,11 +611,7 @@ export class PaymeService {
                 : 0,
             transaction: transaction.id,
             state,
-            reason:
-              state === PaymeTransactionStateEnum.CANCELLED_FROM_CREATED ||
-              state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
-                ? (transaction.cancel_reason ?? 0)
-                : null,
+            reason: this.resolveReasonByState(transaction, state),
           };
         }),
       },
@@ -922,6 +913,35 @@ export class PaymeService {
 
   private toTiyin(amountInSom: number): number {
     return Math.round(Number(amountInSom) * 100);
+  }
+
+  private resolveCancelReason(
+    transaction: PaymentTransaction,
+    incomingReason?: number,
+  ): number {
+    if (typeof incomingReason === 'number') {
+      return incomingReason;
+    }
+
+    return this.normalizeCancelReason(transaction.cancel_reason);
+  }
+
+  private resolveReasonByState(
+    transaction: PaymentTransaction,
+    state: PaymeTransactionStateEnum,
+  ): number | null {
+    if (
+      state === PaymeTransactionStateEnum.CANCELLED_FROM_CREATED ||
+      state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
+    ) {
+      return this.normalizeCancelReason(transaction.cancel_reason);
+    }
+
+    return null;
+  }
+
+  private normalizeCancelReason(value: unknown): number {
+    return typeof value === 'number' ? value : 0;
   }
 
   private resolvePaymeCreateTime(transaction: PaymentTransaction): number {
