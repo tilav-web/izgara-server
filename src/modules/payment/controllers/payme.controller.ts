@@ -49,10 +49,9 @@ export class PaymeController {
     @Headers('authorization') authorization?: string,
     @Req() req?: Request,
   ): Promise<PaymeRpcResponse> {
-    console.log(2);
+    console.log("So'rov keldi!");
 
     if (!this.isAuthorized(authorization) || !this.isAllowedIp(req)) {
-      console.log(1);
       return {
         error: {
           code: PaymeErrorCodeEnum.INSUFFICIENT_PRIVILEGES,
@@ -97,13 +96,12 @@ export class PaymeController {
   }
 
   private isAllowedIp(req?: Request): boolean {
-    // const ip = this.resolveClientIp(req);
-    // if (!ip) {
-    //   return false;
-    // }
+    const ip = this.resolveClientIp(req);
+    if (!ip) {
+      return false;
+    }
 
-    // return this.getAllowedIps().has(ip);
-    return true; // Hozircha IP tekshiruvidan voz kechamiz, keyinchalik yoqish mumkin
+    return this.getAllowedIps().has(ip);
   }
 
   private resolveClientIp(req?: Request): string | null {
