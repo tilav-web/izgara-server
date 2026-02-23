@@ -388,11 +388,16 @@ export class PaymeService {
     }
 
     if (transaction.status !== PaymentStatusEnum.SUCCESS) {
+      const performTime = Date.now();
+
       await this.dataSource.transaction(async (manager) => {
         await manager.update(
           PaymentTransaction,
           { id: transaction.id },
-          { status: PaymentStatusEnum.SUCCESS },
+          {
+            status: PaymentStatusEnum.SUCCESS,
+            provider_perform_time: performTime,
+          },
         );
 
         await manager.update(
@@ -408,12 +413,15 @@ export class PaymeService {
         id: transaction.id,
       });
 
+    const transactionForResponse = refreshedTransaction ?? transaction;
+
     return {
       result: {
         transaction: transaction.id,
-        perform_time: (
-          refreshedTransaction ?? transaction
-        ).updated_at.getTime(),
+        perform_time: this.resolvePaymePerformTime(
+          transactionForResponse,
+          PaymeTransactionStateEnum.PERFORMED,
+        ),
         state: PaymeTransactionStateEnum.PERFORMED,
       },
       id,
@@ -477,7 +485,7 @@ export class PaymeService {
       return {
         result: {
           transaction: transaction.id,
-          cancel_time: transaction.updated_at.getTime(),
+          cancel_time: this.resolvePaymeCancelTime(transaction),
           state: cancelledState,
         },
         id,
@@ -486,12 +494,13 @@ export class PaymeService {
 
     transaction.status = PaymentStatusEnum.CANCELLED;
     transaction.cancel_reason = cancelReason;
+    transaction.provider_cancel_time = Date.now();
     await this.transactionRepo.save(transaction);
 
     return {
       result: {
         transaction: transaction.id,
-        cancel_time: transaction.updated_at.getTime(),
+        cancel_time: this.resolvePaymeCancelTime(transaction),
         state: cancelledState,
       },
       id,
@@ -550,7 +559,7 @@ export class PaymeService {
         cancel_time:
           state === PaymeTransactionStateEnum.CANCELLED_FROM_CREATED ||
           state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
-            ? transaction.updated_at.getTime()
+            ? this.resolvePaymeCancelTime(transaction)
             : 0,
         transaction: transaction.id,
         state,
@@ -604,7 +613,7 @@ export class PaymeService {
             cancel_time:
               state === PaymeTransactionStateEnum.CANCELLED_FROM_CREATED ||
               state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
-                ? transaction.updated_at.getTime()
+                ? this.resolvePaymeCancelTime(transaction)
                 : 0,
             transaction: transaction.id,
             state,
@@ -947,19 +956,26 @@ export class PaymeService {
     transaction: PaymentTransaction,
     state: PaymeTransactionStateEnum,
   ): number {
-    if (state === PaymeTransactionStateEnum.PERFORMED) {
-      return transaction.updated_at.getTime();
-    }
-
-    if (state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED) {
-      if (transaction.order?.updated_at instanceof Date) {
-        return transaction.order.updated_at.getTime();
+    if (
+      state === PaymeTransactionStateEnum.PERFORMED ||
+      state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
+    ) {
+      if (typeof transaction.provider_perform_time === 'number') {
+        return Number(transaction.provider_perform_time);
       }
 
       return transaction.updated_at.getTime();
     }
 
     return 0;
+  }
+
+  private resolvePaymeCancelTime(transaction: PaymentTransaction): number {
+    if (typeof transaction.provider_cancel_time === 'number') {
+      return Number(transaction.provider_cancel_time);
+    }
+
+    return transaction.updated_at.getTime();
   }
 
   private resolvePaymeCreateTime(transaction: PaymentTransaction): number {
