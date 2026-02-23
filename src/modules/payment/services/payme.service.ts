@@ -406,6 +406,12 @@ export class PaymeService {
           { payment_status: PaymentStatusEnum.SUCCESS },
         );
       });
+    } else if (typeof transaction.provider_perform_time !== 'number') {
+      const performTime = transaction.updated_at.getTime();
+      await this.transactionRepo.update(
+        { id: transaction.id },
+        { provider_perform_time: performTime },
+      );
     }
 
     const refreshedTransaction: PaymentTransaction | null =
@@ -477,8 +483,19 @@ export class PaymeService {
     const cancelReason = this.resolveCancelReasonByState(cancelledState);
 
     if (transaction.status === PaymentStatusEnum.CANCELLED) {
+      let shouldPersist = false;
+
+      if (typeof transaction.provider_cancel_time !== 'number') {
+        transaction.provider_cancel_time = transaction.updated_at.getTime();
+        shouldPersist = true;
+      }
+
       if (transaction.cancel_reason !== cancelReason) {
         transaction.cancel_reason = cancelReason;
+        shouldPersist = true;
+      }
+
+      if (shouldPersist) {
         await this.transactionRepo.save(transaction);
       }
 
