@@ -546,10 +546,7 @@ export class PaymeService {
     return {
       result: {
         create_time: this.resolvePaymeCreateTime(transaction),
-        perform_time:
-          state === PaymeTransactionStateEnum.PERFORMED
-            ? transaction.updated_at.getTime()
-            : 0,
+        perform_time: this.resolvePaymePerformTime(transaction, state),
         cancel_time:
           state === PaymeTransactionStateEnum.CANCELLED_FROM_CREATED ||
           state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
@@ -603,10 +600,7 @@ export class PaymeService {
               order_id: transaction.order_id,
             },
             create_time: this.resolvePaymeCreateTime(transaction),
-            perform_time:
-              state === PaymeTransactionStateEnum.PERFORMED
-                ? transaction.updated_at.getTime()
-                : 0,
+            perform_time: this.resolvePaymePerformTime(transaction, state),
             cancel_time:
               state === PaymeTransactionStateEnum.CANCELLED_FROM_CREATED ||
               state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
@@ -947,6 +941,25 @@ export class PaymeService {
     }
 
     return 3;
+  }
+
+  private resolvePaymePerformTime(
+    transaction: PaymentTransaction,
+    state: PaymeTransactionStateEnum,
+  ): number {
+    if (state === PaymeTransactionStateEnum.PERFORMED) {
+      return transaction.updated_at.getTime();
+    }
+
+    if (state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED) {
+      if (transaction.order?.updated_at instanceof Date) {
+        return transaction.order.updated_at.getTime();
+      }
+
+      return transaction.updated_at.getTime();
+    }
+
+    return 0;
   }
 
   private resolvePaymeCreateTime(transaction: PaymentTransaction): number {
