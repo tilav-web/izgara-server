@@ -418,17 +418,9 @@ export class PaymeService {
     }
 
     const performTime =
-      typeof transaction.provider_perform_time === 'number'
+      transaction.provider_perform_time != null
         ? Number(transaction.provider_perform_time)
         : transaction.updated_at.getTime();
-
-    // Agar provider_perform_time yo'q bo'lsa, saqlab qo'yamiz (idempotentlik)
-    if (typeof transaction.provider_perform_time !== 'number') {
-      await this.transactionRepo.update(
-        { id: transaction.id },
-        { provider_perform_time: performTime },
-      );
-    }
 
     return {
       result: {
@@ -491,7 +483,7 @@ export class PaymeService {
     if (transaction.status === PaymentStatusEnum.CANCELLED) {
       let shouldPersist = false;
 
-      if (typeof transaction.provider_cancel_time !== 'number') {
+      if (transaction.provider_cancel_time == null) {
         transaction.provider_cancel_time = transaction.updated_at.getTime();
         shouldPersist = true;
       }
@@ -983,7 +975,7 @@ export class PaymeService {
       state === PaymeTransactionStateEnum.PERFORMED ||
       state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
     ) {
-      if (typeof transaction.provider_perform_time === 'number') {
+      if (transaction.provider_perform_time != null) {
         return Number(transaction.provider_perform_time);
       }
 
@@ -994,7 +986,7 @@ export class PaymeService {
   }
 
   private resolvePaymeCancelTime(transaction: PaymentTransaction): number {
-    if (typeof transaction.provider_cancel_time === 'number') {
+    if (transaction.provider_cancel_time != null) {
       return Number(transaction.provider_cancel_time);
     }
 
