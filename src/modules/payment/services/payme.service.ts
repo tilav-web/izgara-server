@@ -461,10 +461,14 @@ export class PaymeService {
       transaction.status,
       transaction.order?.payment_status,
     );
+    const cancelledState =
+      initialState === PaymeTransactionStateEnum.PERFORMED ||
+      initialState === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
+        ? PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
+        : PaymeTransactionStateEnum.CANCELLED_FROM_CREATED;
+    const cancelReason = this.resolveCancelReasonByState(cancelledState);
 
     if (transaction.status === PaymentStatusEnum.CANCELLED) {
-      const cancelReason = this.resolveCancelReason(transaction, parsed.reason);
-
       if (transaction.cancel_reason !== cancelReason) {
         transaction.cancel_reason = cancelReason;
         await this.transactionRepo.save(transaction);
@@ -474,30 +478,21 @@ export class PaymeService {
         result: {
           transaction: transaction.id,
           cancel_time: transaction.updated_at.getTime(),
-          state:
-            initialState === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
-              ? PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
-              : PaymeTransactionStateEnum.CANCELLED_FROM_CREATED,
+          state: cancelledState,
         },
         id,
       };
     }
 
     transaction.status = PaymentStatusEnum.CANCELLED;
-    transaction.cancel_reason = this.resolveCancelReason(
-      transaction,
-      parsed.reason,
-    );
+    transaction.cancel_reason = cancelReason;
     await this.transactionRepo.save(transaction);
 
     return {
       result: {
         transaction: transaction.id,
         cancel_time: transaction.updated_at.getTime(),
-        state:
-          initialState === PaymeTransactionStateEnum.PERFORMED
-            ? PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
-            : PaymeTransactionStateEnum.CANCELLED_FROM_CREATED,
+        state: cancelledState,
       },
       id,
     };
@@ -562,7 +557,7 @@ export class PaymeService {
             : 0,
         transaction: transaction.id,
         state,
-        reason: this.resolveReasonByState(transaction, state),
+        reason: this.resolveReasonByState(state),
       },
       id,
     };
@@ -619,7 +614,7 @@ export class PaymeService {
                 : 0,
             transaction: transaction.id,
             state,
-            reason: this.resolveReasonByState(transaction, state),
+            reason: this.resolveReasonByState(state),
           };
         }),
       },
@@ -929,33 +924,29 @@ export class PaymeService {
     return Math.round(Number(amountInSom) * 100);
   }
 
-  private resolveCancelReason(
-    transaction: PaymentTransaction,
-    incomingReason?: number,
-  ): number {
-    if (typeof incomingReason === 'number') {
-      return incomingReason;
-    }
-
-    return this.normalizeCancelReason(transaction.cancel_reason);
-  }
-
   private resolveReasonByState(
-    transaction: PaymentTransaction,
     state: PaymeTransactionStateEnum,
   ): number | null {
+    if (state === PaymeTransactionStateEnum.PERFORMED) {
+      return 0;
+    }
+
     if (
       state === PaymeTransactionStateEnum.CANCELLED_FROM_CREATED ||
       state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
     ) {
-      return this.normalizeCancelReason(transaction.cancel_reason);
+      return this.resolveCancelReasonByState(state);
     }
 
     return null;
   }
 
-  private normalizeCancelReason(value: unknown): number {
-    return typeof value === 'number' ? value : 0;
+  private resolveCancelReasonByState(state: PaymeTransactionStateEnum): number {
+    if (state === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED) {
+      return 5;
+    }
+
+    return 3;
   }
 
   private resolvePaymeCreateTime(transaction: PaymentTransaction): number {
