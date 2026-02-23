@@ -139,6 +139,10 @@ export class PaymeService {
       );
     }
 
+    if (!this.isUuid(parsed.account.order_id)) {
+      return this.invalidAccountError(id);
+    }
+
     const order: Order | null = await this.orderRepo.findOneBy({
       id: parsed.account.order_id,
     });
@@ -208,6 +212,10 @@ export class PaymeService {
         'Invalid amount',
         id,
       );
+    }
+
+    if (!this.isUuid(parsed.account.order_id)) {
+      return this.invalidAccountError(id);
     }
 
     const order: Order | null = await this.orderRepo.findOneBy({
@@ -905,6 +913,12 @@ export class PaymeService {
 
   private isValidAmount(amount: number): boolean {
     return Number.isInteger(amount) && amount > 0;
+  }
+
+  private isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    );
   }
 
   private toSom(amountInTiyin: number): number {
