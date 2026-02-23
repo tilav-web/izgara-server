@@ -406,28 +406,34 @@ export class PaymeService {
           { payment_status: PaymentStatusEnum.SUCCESS },
         );
       });
-    } else if (typeof transaction.provider_perform_time !== 'number') {
-      const performTime = transaction.updated_at.getTime();
+
+      return {
+        result: {
+          transaction: transaction.id,
+          perform_time: performTime, // <-- shu yerda
+          state: PaymeTransactionStateEnum.PERFORMED,
+        },
+        id,
+      };
+    }
+
+    const performTime =
+      typeof transaction.provider_perform_time === 'number'
+        ? Number(transaction.provider_perform_time)
+        : transaction.updated_at.getTime();
+
+    // Agar provider_perform_time yo'q bo'lsa, saqlab qo'yamiz (idempotentlik)
+    if (typeof transaction.provider_perform_time !== 'number') {
       await this.transactionRepo.update(
         { id: transaction.id },
         { provider_perform_time: performTime },
       );
     }
 
-    const refreshedTransaction: PaymentTransaction | null =
-      await this.transactionRepo.findOneBy({
-        id: transaction.id,
-      });
-
-    const transactionForResponse = refreshedTransaction ?? transaction;
-
     return {
       result: {
         transaction: transaction.id,
-        perform_time: this.resolvePaymePerformTime(
-          transactionForResponse,
-          PaymeTransactionStateEnum.PERFORMED,
-        ),
+        perform_time: performTime,
         state: PaymeTransactionStateEnum.PERFORMED,
       },
       id,
@@ -948,7 +954,7 @@ export class PaymeService {
     state: PaymeTransactionStateEnum,
   ): number | null {
     if (state === PaymeTransactionStateEnum.PERFORMED) {
-      return 0;
+      return null;
     }
 
     if (
