@@ -33,10 +33,10 @@ export class PaymentTransaction {
   provider_create_time: number;
 
   @Column({ type: 'bigint', nullable: true })
-  provider_perform_time: string | null;
+  provider_perform_time: number | null;
 
   @Column({ type: 'bigint', nullable: true })
-  provider_cancel_time: string | null;
+  provider_cancel_time: number | null;
 
   @Column({ type: 'int', nullable: true })
   cancel_reason: number | null;
