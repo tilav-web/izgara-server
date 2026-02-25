@@ -27,6 +27,11 @@ export class UserRedisService {
     return JSON.parse(user) as User;
   }
 
+  async deleteUserDetails(auth_id: number) {
+    const key = `user:auth_id:${auth_id}`;
+    await this.redis.del(key);
+  }
+
   async setUserWithSocketClientId({
     user_id,
     client_id,

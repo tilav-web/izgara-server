@@ -186,9 +186,7 @@ export class OrderService {
 
     const deliveryLocation = this.resolveDeliveryLocation(dto, location);
 
-    let savedOrder: Order | null = null;
-
-    await this.dataSource.transaction(async (manager) => {
+    const savedOrder = await this.dataSource.transaction(async (manager) => {
       await manager.update(
         User,
         { id: user.id },
@@ -218,13 +216,14 @@ export class OrderService {
           : {}),
       });
 
-      savedOrder = await manager.save(order);
+      return manager.save(order);
     });
 
     if (!savedOrder) {
       throw new BadRequestException('Order saqlanmadi!');
     }
 
+    await this.userService.invalidateUserCacheByUserId(savedOrder.user_id);
     return savedOrder;
   }
 
@@ -624,6 +623,7 @@ export class OrderService {
       return manager.save(order);
     });
 
+    await this.userService.invalidateUserCacheByUserId(result.user_id);
     await this.orderGateway.handleStatus({
       order_id: result.id,
       status: result.status,
@@ -694,7 +694,7 @@ export class OrderService {
       throw new BadRequestException('Buyurtma allaqachon bekor qilingan!');
     }
 
-    return await this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       if (order.status !== OrderStatusEnum.NEW) {
         await this.deleteToAlipos(order.id);
       }
@@ -708,5 +708,8 @@ export class OrderService {
       const updatedOrder = await manager.save(order);
       return updatedOrder;
     });
+
+    await this.userService.invalidateUserCacheByUserId(result.user_id);
+    return result;
   }
 }

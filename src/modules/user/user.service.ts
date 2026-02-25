@@ -14,11 +14,13 @@ import { FileFolderEnum } from '../file/enums/file-folder.enum';
 import { UsersFilterDto } from './dto/users-filter.dto';
 import { AuthStatusEnum } from '../auth/enums/status.enum';
 import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
+import { Auth } from '../auth/auth.entity';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User) private readonly repository: Repository<User>,
+    @InjectRepository(Auth) private readonly authRepository: Repository<Auth>,
     private readonly userRedisService: UserRedisService,
     private readonly fileService: FileService,
   ) {}
@@ -192,5 +194,15 @@ export class UserService {
       waiter_users: getRoleCount(AuthRoleEnum.WAITER),
       delivery_users: getRoleCount(AuthRoleEnum.DELIVERY),
     };
+  }
+
+  async invalidateUserCacheByUserId(user_id: number) {
+    const auth = await this.authRepository.findOne({
+      where: { user_id },
+      select: { id: true },
+    });
+
+    if (!auth) return;
+    await this.userRedisService.deleteUserDetails(auth.id);
   }
 }
