@@ -337,6 +337,8 @@ export class OrderService {
     const page = filter.page ?? 1;
     const limit = filter.limit ?? 10;
 
+    qb.orderBy('order.created_at', 'DESC').addOrderBy('order.id', 'DESC');
+
     qb.skip((page - 1) * limit).take(limit);
 
     const [orders, total] = await qb.getManyAndCount();
