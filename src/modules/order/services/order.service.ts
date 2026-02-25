@@ -11,7 +11,8 @@ import { CreateOrderDto } from '../dto/create-order.dto';
 import { UserService } from '../../user/user.service';
 import { ProductService } from '../../product/product.service';
 import { OrderPaymentMethodEnum } from '../enums/order-payment-status.enum';
-import { claculateCoin } from '../../../utils/calculate-coin';
+import { calculatePriceToCoin } from '../../../utils/calculate-coin';
+import { calculateEarnedCoinsToPrice } from '../../../utils/calculate-coin';
 import { CoinSettingsService } from '../../coinSettings/coin-settings.service';
 import { User } from '../../user/user.entity';
 import { OrderTypeEnum } from '../enums/order-type.enum';
@@ -23,6 +24,7 @@ import { PaymentProviderEnum } from '../../payment/enums/payment-provider.enum';
 import { generateClickUrl } from '../../../utils/generate-click-url';
 import { FilterOrderDto } from '../dto/filter-order.dto';
 import { DataSource } from 'typeorm';
+import { EntityManager } from 'typeorm';
 import { UpdateOrderDto } from '../dto/update-order.dto';
 import { DeliverySettingsService } from '../../deliverySettings/delivery-settings.service';
 import { OrderStatusEnum } from '../enums/order-status.enum';
@@ -174,7 +176,7 @@ export class OrderService {
     items_price,
   }: CreateOrderContext): Promise<Order> {
     const coinSettings = await this.coinSettingsService.findCoinSettings();
-    const totalCoin = claculateCoin({
+    const totalCoin = calculatePriceToCoin({
       coinSettings,
       product_price: total_price,
     });
@@ -395,13 +397,100 @@ export class OrderService {
 
       if (order.payment_status === PaymentStatusEnum.SUCCESS) return;
 
-      await this.orderRepository.update(id, {
-        payment_status: PaymentStatusEnum.SUCCESS,
-      });
+      await this.updatePaymentStatusWithCoinSync(id, PaymentStatusEnum.SUCCESS);
     } catch (error) {
       console.log(error);
       throw error;
     }
+  }
+
+  private isCoinEarnEligibleStatus(status: OrderStatusEnum): boolean {
+    return (
+      status !== OrderStatusEnum.NEW && status !== OrderStatusEnum.CANCELLED
+    );
+  }
+
+  private async applyCoinEffectsByOrderStatusChange(
+    manager: EntityManager,
+    order: Order,
+    nextStatus: OrderStatusEnum,
+  ) {
+    const prevStatus = order.status;
+
+    if (prevStatus === nextStatus) return;
+    const currentEarnedCoins = Number(order.earned_coins || 0);
+
+    const wasEligible = this.isCoinEarnEligibleStatus(prevStatus);
+    const isEligible = this.isCoinEarnEligibleStatus(nextStatus);
+
+    if (
+      prevStatus === OrderStatusEnum.NEW &&
+      isEligible &&
+      currentEarnedCoins <= 0 &&
+      order.payment_method !== OrderPaymentMethodEnum.PAYMENT_COIN
+    ) {
+      const coinSettings = await this.coinSettingsService.findCoinSettings();
+      const earnedCoinsRaw = Number(
+        calculateEarnedCoinsToPrice({
+          total_price: Number(order.total_price),
+          coinSettings,
+        }).earned_coins,
+      );
+      const earnedCoins = Number.isFinite(earnedCoinsRaw) ? earnedCoinsRaw : 0;
+
+      if (earnedCoins > 0) {
+        await manager.update(
+          User,
+          { id: order.user_id },
+          {
+            coin_balance: () => `"coin_balance" + ${earnedCoins}`,
+          },
+        );
+      }
+      order.earned_coins = earnedCoins;
+      return;
+    }
+
+    if (
+      wasEligible &&
+      nextStatus === OrderStatusEnum.CANCELLED &&
+      currentEarnedCoins > 0
+    ) {
+      await manager.update(
+        User,
+        { id: order.user_id },
+        {
+          coin_balance: () => `"coin_balance" - ${currentEarnedCoins}`,
+        },
+      );
+      order.earned_coins = 0;
+    }
+  }
+
+  async updatePaymentStatusWithCoinSync(
+    order_id: string,
+    nextPaymentStatus: PaymentStatusEnum,
+    manager?: EntityManager,
+  ): Promise<Order> {
+    if (manager) {
+      const order = await manager.findOne(Order, {
+        where: { id: order_id },
+      });
+
+      if (!order)
+        throw new NotFoundException('Buyurtma malumotlari topilmadi!');
+
+      order.payment_status = nextPaymentStatus;
+      return manager.save(order);
+    }
+
+    return this.dataSource.transaction((txManager) =>
+      this.updatePaymentStatusWithCoinSync(
+        order_id,
+        nextPaymentStatus,
+        txManager,
+      ),
+    );
   }
 
   // Bu metod controllerda chaqiriladi
@@ -475,48 +564,68 @@ export class OrderService {
   }
 
   async updateOrderForAdmin(order_id: string, dto: UpdateOrderDto) {
-    const order = await this.orderRepository.findOne({
-      where: {
-        id: order_id,
-      },
-    });
+    const result = await this.dataSource.transaction(async (manager) => {
+      const order = await manager.findOne(Order, {
+        where: {
+          id: order_id,
+        },
+      });
 
-    if (!order) throw new NotFoundException('Buyurtma malumotlari topilmadi!');
+      if (!order) {
+        throw new NotFoundException('Buyurtma malumotlari topilmadi!');
+      }
 
-    if (
-      dto.status === OrderStatusEnum.NEW &&
-      order.status !== OrderStatusEnum.NEW
-    )
-      throw new BadRequestException(
-        "Order status ni NEW ga o'zgartira olmaysiz!",
-      );
+      if (
+        dto.status === OrderStatusEnum.NEW &&
+        order.status !== OrderStatusEnum.NEW
+      )
+        throw new BadRequestException(
+          "Order status ni NEW ga o'zgartira olmaysiz!",
+        );
 
-    if (
-      dto.status &&
-      dto.status !== OrderStatusEnum.CANCELLED &&
-      dto.status !== OrderStatusEnum.NEW &&
-      order.status === OrderStatusEnum.NEW
-    ) {
-      await this.sendToAlipos(order.id);
-      order.status = dto.status;
-    }
+      if (
+        dto.status &&
+        dto.status !== OrderStatusEnum.CANCELLED &&
+        dto.status !== OrderStatusEnum.NEW &&
+        order.status === OrderStatusEnum.NEW
+      ) {
+        await this.sendToAlipos(order.id);
+      }
 
-    if (dto.status) {
-      order.status = dto.status;
       if (dto.status === OrderStatusEnum.CANCELLED) {
         await this.deleteToAlipos(order.id);
       }
-    }
 
-    if (dto.payment_status) {
-      order.payment_status = dto.payment_status;
-    }
+      let targetPaymentStatus: PaymentStatusEnum | undefined;
 
-    const result = await this.orderRepository.save(order);
+      if (dto.status === OrderStatusEnum.CANCELLED) {
+        targetPaymentStatus = PaymentStatusEnum.CANCELLED;
+      }
+
+      if (dto.payment_status) {
+        targetPaymentStatus = dto.payment_status;
+      }
+
+      if (targetPaymentStatus) {
+        order.payment_status = targetPaymentStatus;
+      }
+
+      if (dto.status) {
+        await this.applyCoinEffectsByOrderStatusChange(
+          manager,
+          order,
+          dto.status,
+        );
+        order.status = dto.status;
+      }
+
+      return manager.save(order);
+    });
+
     await this.orderGateway.handleStatus({
       order_id: result.id,
-      status: order.status,
-      user_id: order.user_id,
+      status: result.status,
+      user_id: result.user_id,
     });
     return result;
   }
@@ -587,7 +696,13 @@ export class OrderService {
       if (order.status !== OrderStatusEnum.NEW) {
         await this.deleteToAlipos(order.id);
       }
+      await this.applyCoinEffectsByOrderStatusChange(
+        manager,
+        order,
+        OrderStatusEnum.CANCELLED,
+      );
       order.status = OrderStatusEnum.CANCELLED;
+      order.payment_status = PaymentStatusEnum.CANCELLED;
       const updatedOrder = await manager.save(order);
       return updatedOrder;
     });

@@ -400,17 +400,17 @@ export class PaymeService {
           },
         );
 
-        await manager.update(
-          Order,
-          { id: transaction.order_id },
-          { payment_status: PaymentStatusEnum.SUCCESS },
+        await this.orderService.updatePaymentStatusWithCoinSync(
+          transaction.order_id,
+          PaymentStatusEnum.SUCCESS,
+          manager,
         );
       });
 
       return {
         result: {
           transaction: transaction.id,
-          perform_time: performTime, // <-- shu yerda
+          perform_time: performTime,
           state: PaymeTransactionStateEnum.PERFORMED,
         },
         id,
@@ -497,6 +497,15 @@ export class PaymeService {
         await this.transactionRepo.save(transaction);
       }
 
+      if (
+        cancelledState === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
+      ) {
+        await this.orderService.updatePaymentStatusWithCoinSync(
+          transaction.order_id,
+          PaymentStatusEnum.CANCELLED,
+        );
+      }
+
       return {
         result: {
           transaction: transaction.id,
@@ -507,10 +516,18 @@ export class PaymeService {
       };
     }
 
-    transaction.status = PaymentStatusEnum.CANCELLED;
-    transaction.cancel_reason = cancelReason;
-    transaction.provider_cancel_time = Date.now();
-    await this.transactionRepo.save(transaction);
+    await this.dataSource.transaction(async (manager) => {
+      transaction.status = PaymentStatusEnum.CANCELLED;
+      transaction.cancel_reason = cancelReason;
+      transaction.provider_cancel_time = Date.now();
+      await manager.save(transaction);
+
+      await this.orderService.updatePaymentStatusWithCoinSync(
+        transaction.order_id,
+        PaymentStatusEnum.CANCELLED,
+        manager,
+      );
+    });
 
     return {
       result: {

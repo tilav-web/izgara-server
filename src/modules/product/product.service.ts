@@ -16,7 +16,7 @@ import {
 } from 'typeorm';
 import { FindAllFilterDto } from './dto/find-all-filter.dto';
 import { CoinSettingsService } from '../coinSettings/coin-settings.service';
-import { claculateCoin } from '../../utils/calculate-coin';
+import { calculatePriceToCoin } from '../../utils/calculate-coin';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { FileService } from '../file/file.service';
 import { FileFolderEnum } from '../file/enums/file-folder.enum';
@@ -151,7 +151,7 @@ export class ProductService {
     const products = data.map((item) => {
       return {
         ...item,
-        ...claculateCoin({ product_price: item.price, coinSettings }),
+        ...calculatePriceToCoin({ product_price: item.price, coinSettings }),
       };
     });
 
@@ -182,7 +182,10 @@ export class ProductService {
 
     return {
       ...product,
-      ...claculateCoin({ product_price: product?.price ?? 0, coinSettings }),
+      ...calculatePriceToCoin({
+        product_price: product?.price ?? 0,
+        coinSettings,
+      }),
     };
   }
 

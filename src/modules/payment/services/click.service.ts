@@ -313,8 +313,18 @@ export class ClickService {
     }
 
     if (clickErrorCode <= -1) {
-      await this.paymentTransactionRepository.update(paymentTransaction.id, {
-        status: PaymentStatusEnum.CANCELLED,
+      await this.dataSource.transaction(async (manager) => {
+        await manager.update(
+          PaymentTransaction,
+          { id: paymentTransaction.id },
+          { status: PaymentStatusEnum.CANCELLED },
+        );
+
+        await this.orderService.updatePaymentStatusWithCoinSync(
+          paymentTransaction.order_id,
+          PaymentStatusEnum.CANCELLED,
+          manager,
+        );
       });
 
       return this.error(
@@ -334,10 +344,10 @@ export class ClickService {
           },
         );
 
-        await manager.update(
-          Order,
-          { id: paymentTransaction.order_id },
-          { payment_status: PaymentStatusEnum.SUCCESS },
+        await this.orderService.updatePaymentStatusWithCoinSync(
+          paymentTransaction.order_id,
+          PaymentStatusEnum.SUCCESS,
+          manager,
         );
       });
     } catch {
