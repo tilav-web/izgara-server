@@ -85,7 +85,7 @@ export class Order {
   @Column()
   customer_phone: string;
 
-  @ManyToOne(() => Location, { nullable: true })
+  @ManyToOne(() => Location, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'location_id' })
   location: Location;
 
