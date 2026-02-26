@@ -125,6 +125,12 @@ export class AuthService {
 
     const auth = await this.findByPhone(cleanPhone);
 
+    if (auth?.status === AuthStatusEnum.BLOCK) {
+      throw new BadRequestException(
+        'Foydalanuvchi bloklangan adminga aloqaga chiqing!',
+      );
+    }
+
     if (auth?.role === AuthRoleEnum.SUPERADMIN) {
       if (!password || !auth.password) {
         throw new BadRequestException(
