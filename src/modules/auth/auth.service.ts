@@ -278,11 +278,33 @@ export class AuthService {
     if (!user)
       throw new NotFoundException('Foydalanuvchi malumotlari topilmadi!');
 
+    if (
+      userAuth.id === auth_id &&
+      (role !== undefined || status !== undefined)
+    ) {
+      throw new ForbiddenException(
+        "O'zingizning role yoki status maydoningizni o'zgartira olmaysiz!",
+      );
+    }
+
     const superAdminPhone = process.env.SUPERADMIN_PHONE as string;
 
     if (!superAdminPhone) {
       throw new NotFoundException(
         'Dasturchiga murojat qiling .env da super adminning telefon raqami topilmadi!',
+      );
+    }
+
+    const isEnvSuperAdmin = superAdminAuth.phone === superAdminPhone;
+    const targetIsSuperAdmin = userAuth.role === AuthRoleEnum.SUPERADMIN;
+
+    if (
+      (role !== undefined || status !== undefined) &&
+      targetIsSuperAdmin &&
+      !isEnvSuperAdmin
+    ) {
+      throw new ForbiddenException(
+        "Faqat .env dagi SUPERADMIN_PHONE ga tegishli super admin boshqa super adminning role/status ini o'zgartira oladi!",
       );
     }
 
@@ -304,7 +326,7 @@ export class AuthService {
         "Sizga super adminning role-ni o'zgartirish uchun huquq berilmagan!",
       );
 
-    if (role === AuthRoleEnum.SUPERADMIN && userAuth.phone !== superAdminPhone)
+    if (role === AuthRoleEnum.SUPERADMIN && !isEnvSuperAdmin)
       throw new ForbiddenException(
         `${AuthRoleEnum.SUPERADMIN} role-ni berish uchun siz super puper admin bo'lishingiz kerak!`,
       );
