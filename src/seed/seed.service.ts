@@ -22,19 +22,19 @@ export class SeedService {
   ) {}
 
   async createSuperAdminNotExists() {
+    const phone = this.configService.get<string>('SUPERADMIN_PHONE');
+    const rawPassword = this.configService.get<string>('SUPERADMIN_PASSWORD');
+    const first_name = this.configService.get<string>('SUPERADMIN_FIRST_NAME');
+    const last_name = this.configService.get<string>('SUPERADMIN_LAST_NAME');
+
     const exists = await this.authRepository.findOne({
-      where: { role: AuthRoleEnum.SUPERADMIN },
+      where: { role: AuthRoleEnum.SUPERADMIN, phone },
     });
 
     if (exists) {
       this.logger.log('Superadmin already exists. Skipping seed.');
       return;
     }
-
-    const phone = this.configService.get<string>('SUPERADMIN_PHONE');
-    const rawPassword = this.configService.get<string>('SUPERADMIN_PASSWORD');
-    const first_name = this.configService.get<string>('SUPERADMIN_FIRST_NAME');
-    const last_name = this.configService.get<string>('SUPERADMIN_LAST_NAME');
 
     if (!phone || !rawPassword) {
       const msg = `
