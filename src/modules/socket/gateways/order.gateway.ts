@@ -28,7 +28,9 @@ export class OrderGateway {
         this.server.to(id).emit('handle_order_status', payload);
       });
 
-      console.log(`User ${user_id} ga order status yuborildi: ${status}`);
+      console.log(
+        `User ${user_id} ga order status yuborildi: ${JSON.stringify(payload)}`,
+      );
     } catch (error) {
       console.error('Socket emit xatosi:', error);
     }
