@@ -126,6 +126,22 @@ export class OrderService {
     return dto.order_type === OrderTypeEnum.DELIVERY ? location : undefined;
   }
 
+  private async emitCreatedOrderToAdmins(order: Order) {
+    await this.orderGateway.emitOrderEvent({
+      order,
+      action: 'created',
+      owner: false,
+      roles: [AuthRoleEnum.SUPERADMIN],
+    });
+
+    await this.orderGateway.emitNotification({
+      title: 'Yangi buyurtma',
+      message: `Buyurtma #${order.order_number ?? order.id} yaratildi`,
+      status: OrderNotificationStatusEnum.SUCCESS,
+      roles: [AuthRoleEnum.SUPERADMIN],
+    });
+  }
+
   private async createAndSaveOrder({
     dto,
     total_price,
@@ -229,12 +245,7 @@ export class OrderService {
     savedOrder.user = user;
 
     await this.userService.invalidateUserCacheByUserId(savedOrder.user_id);
-    await this.orderGateway.emitOrderEvent({
-      order: savedOrder,
-      action: 'created',
-      owner: false,
-      roles: [AuthRoleEnum.SUPERADMIN],
-    });
+    await this.emitCreatedOrderToAdmins(savedOrder);
     return savedOrder;
   }
 
@@ -244,12 +255,7 @@ export class OrderService {
       ...ctx,
       payment_method: OrderPaymentMethodEnum.PAYMENT_CASH,
     });
-    await this.orderGateway.emitOrderEvent({
-      order,
-      action: 'created',
-      owner: false,
-      roles: [AuthRoleEnum.SUPERADMIN],
-    });
+    await this.emitCreatedOrderToAdmins(order);
     return order;
   }
 
@@ -259,12 +265,7 @@ export class OrderService {
       ...ctx,
       payment_method: OrderPaymentMethodEnum.PAYMENT_TERMINAL,
     });
-    await this.orderGateway.emitOrderEvent({
-      order,
-      action: 'created',
-      owner: false,
-      roles: [AuthRoleEnum.SUPERADMIN],
-    });
+    await this.emitCreatedOrderToAdmins(order);
     return order;
   }
 
@@ -282,12 +283,7 @@ export class OrderService {
       ...ctx,
       payment_method: OrderPaymentMethodEnum.PAYMENT_ONLINE,
     });
-    await this.orderGateway.emitOrderEvent({
-      order,
-      action: 'created',
-      owner: false,
-      roles: [AuthRoleEnum.SUPERADMIN],
-    });
+    await this.emitCreatedOrderToAdmins(order);
 
     switch (ctx.dto.payment_provider) {
       case PaymentProviderEnum.CLICK:
