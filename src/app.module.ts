@@ -28,7 +28,7 @@ import { APP_GUARD } from '@nestjs/core';
       {
         name: 'default',
         ttl: 60000,
-        limit: 20,
+        limit: 30,
       },
     ]),
     BullModule.forRootAsync({
