@@ -159,12 +159,14 @@ export class UserService {
       });
 
       if (!auth) {
-        throw new NotFoundException('Foydalanuvchi auth ma`lumotlari topilmadi!');
+        throw new NotFoundException(
+          'Foydalanuvchi auth ma`lumotlari topilmadi!',
+        );
       }
 
       if (auth.role === AuthRoleEnum.USER) {
         throw new ForbiddenException(
-          "Sizning rolingizda parolni yangilashga ruxsat berilmagan!",
+          'Sizning rolingizda parolni yangilashga ruxsat berilmagan!',
         );
       }
 

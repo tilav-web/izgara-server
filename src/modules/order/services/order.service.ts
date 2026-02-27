@@ -605,6 +605,9 @@ export class OrderService {
         where: {
           id: order_id,
         },
+        relations: {
+          user: true,
+        },
       });
 
       if (!order) {

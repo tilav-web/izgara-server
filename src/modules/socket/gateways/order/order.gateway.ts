@@ -23,7 +23,9 @@ export class OrderGateway {
   }) {
     const uniqueRoles = [...new Set(roles)];
     const roleSocketsList = await Promise.all(
-      uniqueRoles.map((role) => this.userRedisService.getRoleSocketClients(role)),
+      uniqueRoles.map((role) =>
+        this.userRedisService.getRoleSocketClients(role),
+      ),
     );
     const roleSockets = roleSocketsList.flat();
 
@@ -117,7 +119,9 @@ export class OrderGateway {
       };
 
       targetSockets.forEach((id) => {
-        this.server.to(id).emit(ORDER_SOCKET_EVENTS.HANDLE_NOTIFICATION, payload);
+        this.server
+          .to(id)
+          .emit(ORDER_SOCKET_EVENTS.HANDLE_NOTIFICATION, payload);
       });
     } catch (error) {
       console.error('Notification emit xatosi:', error);
