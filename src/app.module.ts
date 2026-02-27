@@ -15,8 +15,9 @@ import { DeliverySettingsModule } from './modules/deliverySettings/delivery-sett
 import { BullModule } from '@nestjs/bullmq';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { OrderModule } from './modules/order/order.module';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PaymentModule } from './modules/payment/payment.module';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -66,6 +67,12 @@ import { PaymentModule } from './modules/payment/payment.module';
     JobsModule,
     OrderModule,
     PaymentModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}
