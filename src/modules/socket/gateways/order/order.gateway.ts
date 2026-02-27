@@ -3,7 +3,11 @@ import { Server } from 'socket.io';
 import { Order } from '../../../order/schemas/order.entity';
 import { UserRedisService } from '../../../redis/user-redis.service';
 import { AuthRoleEnum } from '../../../auth/enums/auth-role.enum';
-import { ORDER_SOCKET_EVENTS } from './constants';
+import {
+  ORDER_SOCKET_EVENTS,
+  OrderNotificationPayload,
+  OrderNotificationStatusEnum,
+} from './constants';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class OrderGateway {
@@ -89,6 +93,7 @@ export class OrderGateway {
   async emitNotification({
     title,
     message,
+    status,
     user_id,
     owner = false,
     roles = [],
@@ -96,6 +101,7 @@ export class OrderGateway {
   }: {
     title: string;
     message: string;
+    status: OrderNotificationStatusEnum;
     user_id?: number;
     owner?: boolean;
     roles?: AuthRoleEnum[];
@@ -112,9 +118,10 @@ export class OrderGateway {
         return;
       }
 
-      const payload = {
+      const payload: OrderNotificationPayload = {
         title,
         message,
+        status,
         time: time ?? new Date().toISOString(),
       };
 

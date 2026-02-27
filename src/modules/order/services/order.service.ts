@@ -33,6 +33,7 @@ import { Location } from '../../location/location.entity';
 import { OrderItem } from '../schemas/order-item.entity';
 import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
 import { OrderGateway } from '../../socket/gateways/order/order.gateway';
+import { OrderNotificationStatusEnum } from '../../socket/gateways/order/constants';
 
 type CreateOrderContext = {
   dto: CreateOrderDto;
@@ -757,6 +758,7 @@ export class OrderService {
     await this.orderGateway.emitNotification({
       title: 'Buyurtma bekor qilindi',
       message: `Buyurtma #${result.order_number ?? result.id} foydalanuvchi tomonidan bekor qilindi`,
+      status: OrderNotificationStatusEnum.ERROR,
       roles: [AuthRoleEnum.SUPERADMIN],
     });
     return { ...result, user: order.user } as Order;
