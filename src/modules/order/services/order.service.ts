@@ -624,9 +624,8 @@ export class OrderService {
     });
 
     await this.userService.invalidateUserCacheByUserId(result.user_id);
-    await this.orderGateway.handleStatus({
-      order_id: result.id,
-      status: result.status,
+    await this.orderGateway.handleOrder({
+      order: result,
       user_id: result.user_id,
     });
     return result;

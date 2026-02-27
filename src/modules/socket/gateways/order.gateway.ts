@@ -1,7 +1,7 @@
 import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { UserRedisService } from '../../redis/user-redis.service';
-import { OrderStatusEnum } from '../../order/enums/order-status.enum';
+import { Order } from '../../order/schemas/order.entity';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class OrderGateway {
@@ -10,15 +10,7 @@ export class OrderGateway {
 
   constructor(private readonly userRedisService: UserRedisService) {}
 
-  async handleStatus({
-    user_id,
-    order_id,
-    status,
-  }: {
-    user_id: number;
-    order_id: string;
-    status: OrderStatusEnum;
-  }) {
+  async handleOrder({ user_id, order }: { user_id: number; order: Order }) {
     try {
       const sockets = await this.userRedisService.getUserSocketClients(user_id);
 
@@ -28,8 +20,7 @@ export class OrderGateway {
       }
 
       const payload = {
-        order_id,
-        status,
+        order,
         timestamp: new Date().toISOString(),
       };
 
