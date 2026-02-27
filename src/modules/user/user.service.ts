@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -15,6 +16,7 @@ import { UsersFilterDto } from './dto/users-filter.dto';
 import { AuthStatusEnum } from '../auth/enums/status.enum';
 import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 import { Auth } from '../auth/auth.entity';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UserService {
@@ -150,6 +152,25 @@ export class UserService {
 
     if (dto.first_name) user.first_name = dto.first_name;
     if (dto.last_name) user.last_name = dto.last_name;
+
+    if (dto.password !== undefined && dto.password !== null) {
+      const auth = await this.authRepository.findOne({
+        where: { id: auth_id },
+      });
+
+      if (!auth) {
+        throw new NotFoundException('Foydalanuvchi auth ma`lumotlari topilmadi!');
+      }
+
+      if (auth.role === AuthRoleEnum.USER) {
+        throw new ForbiddenException(
+          "Sizning rolingizda parolni yangilashga ruxsat berilmagan!",
+        );
+      }
+
+      auth.password = await bcrypt.hash(dto.password, 10);
+      await this.authRepository.save(auth);
+    }
 
     const result = await this.repository.save(user);
     await this.userRedisService.setUserDetails({ user: result, auth_id });

@@ -111,6 +111,12 @@ export class ProductService {
             );
           }
 
+          if (!mod.is_active) {
+            throw new BadRequestException(
+              `Modifier vaqtincha faol emas: ${mod.name}`,
+            );
+          }
+
           if (mod.group?.product_id !== item.product_id) {
             throw new BadRequestException(
               `Modifier ${mod.id} mahsulot ${item.product_id} ga tegishli emas`,
@@ -327,6 +333,12 @@ export class ProductService {
             throw new NotFoundException(
               `Modifier ${mDto.modifier_id} topilmadi!`,
             );
+
+          if (!mod.is_active) {
+            throw new BadRequestException(
+              `Modifier vaqtincha faol emas: ${mod.name}`,
+            );
+          }
 
           if (mod.group?.product_id !== d.product_id) {
             throw new BadRequestException(

@@ -25,4 +25,13 @@ export class UpdateUserDto {
   })
   @IsOptional()
   image?: Express.Multer.File;
+
+  @ApiPropertyOptional({
+    example: 'StrongPassword123',
+    description:
+      "Parol (faqat role USER bo'lmagan foydalanuvchilar uchun yangilanadi)",
+  })
+  @IsOptional()
+  @IsString()
+  password?: string;
 }
