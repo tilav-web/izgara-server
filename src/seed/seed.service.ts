@@ -27,15 +27,6 @@ export class SeedService {
     const first_name = this.configService.get<string>('SUPERADMIN_FIRST_NAME');
     const last_name = this.configService.get<string>('SUPERADMIN_LAST_NAME');
 
-    const exists = await this.authRepository.findOne({
-      where: { role: AuthRoleEnum.SUPERADMIN, phone },
-    });
-
-    if (exists) {
-      this.logger.log('Superadmin already exists. Skipping seed.');
-      return;
-    }
-
     if (!phone || !rawPassword) {
       const msg = `
       ❌ SUPERADMIN yaratib bo‘lmadi!
@@ -59,7 +50,52 @@ export class SeedService {
       );
     }
 
+    const exists = await this.authRepository.findOne({
+      where: { role: AuthRoleEnum.SUPERADMIN, phone: cleanPhone },
+      relations: { user: true },
+    });
+
+    if (exists) {
+      this.logger.log('Superadmin already exists. Skipping seed.');
+      return;
+    }
+
     const password = await bcrypt.hash(rawPassword, 10);
+
+    // Agar shu telefon bilan auth mavjud bo'lsa, duplicate insert o'rniga
+    // uni superadminga ko'taramiz.
+    const existingAuthByPhone = await this.authRepository.findOne({
+      where: { phone: cleanPhone },
+      relations: { user: true },
+    });
+
+    if (existingAuthByPhone) {
+      existingAuthByPhone.role = AuthRoleEnum.SUPERADMIN;
+      existingAuthByPhone.password = password;
+
+      if (!existingAuthByPhone.user) {
+        const user = await this.userRepository.save(
+          this.userRepository.create({
+            first_name,
+            last_name,
+            phone: cleanPhone,
+            role: AuthRoleEnum.SUPERADMIN,
+          }),
+        );
+        existingAuthByPhone.user = user;
+      } else {
+        existingAuthByPhone.user.role = AuthRoleEnum.SUPERADMIN;
+        if (first_name) existingAuthByPhone.user.first_name = first_name;
+        if (last_name) existingAuthByPhone.user.last_name = last_name;
+        await this.userRepository.save(existingAuthByPhone.user);
+      }
+
+      await this.authRepository.save(existingAuthByPhone);
+      this.logger.log(
+        'Existing auth found by phone. Promoted to superadmin successfully.',
+      );
+      return;
+    }
 
     let user = this.userRepository.create({
       first_name,
