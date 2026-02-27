@@ -77,12 +77,10 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
         user_id: user.id,
         client_id: client.id,
       });
-      if (user.role === AuthRoleEnum.SUPERADMIN) {
-        await this.userRedisService.setRoleSocketClientId({
-          role: AuthRoleEnum.SUPERADMIN,
-          client_id: client.id,
-        });
-      }
+      await this.userRedisService.setRoleSocketClientId({
+        role: user.role,
+        client_id: client.id,
+      });
 
       console.log(`User ${user.id} ulandi. Socket ID: ${client.id}`);
     } catch (error) {
@@ -98,11 +96,8 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       if (user_id) {
         await this.userRedisService.removeSocketClientId(user_id, client.id);
-        if (role === AuthRoleEnum.SUPERADMIN) {
-          await this.userRedisService.removeRoleSocketClientId(
-            AuthRoleEnum.SUPERADMIN,
-            client.id,
-          );
+        if (role) {
+          await this.userRedisService.removeRoleSocketClientId(role, client.id);
         }
         console.log(`User ${user_id} uzildi. Socket ID: ${client.id}`);
       }

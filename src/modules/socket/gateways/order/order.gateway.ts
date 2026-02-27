@@ -12,6 +12,29 @@ export class OrderGateway {
 
   constructor(private readonly userRedisService: UserRedisService) {}
 
+  private async resolveTargetSockets({
+    user_id,
+    owner,
+    roles,
+  }: {
+    user_id?: number;
+    owner: boolean;
+    roles: AuthRoleEnum[];
+  }) {
+    const uniqueRoles = [...new Set(roles)];
+    const roleSocketsList = await Promise.all(
+      uniqueRoles.map((role) => this.userRedisService.getRoleSocketClients(role)),
+    );
+    const roleSockets = roleSocketsList.flat();
+
+    const ownerSockets =
+      owner && user_id
+        ? await this.userRedisService.getUserSocketClients(user_id)
+        : [];
+
+    return [...new Set([...ownerSockets, ...roleSockets])];
+  }
+
   async emitOrderEvent({
     order,
     action,
@@ -27,20 +50,11 @@ export class OrderGateway {
   }) {
     try {
       const ownerUserId = user_id ?? order.user_id;
-      const uniqueRoles = [...new Set(roles)];
-      const roleSocketsList = await Promise.all(
-        uniqueRoles.map((role) =>
-          this.userRedisService.getRoleSocketClients(role),
-        ),
-      );
-      const roleSockets = roleSocketsList.flat();
-
-      const ownerSockets =
-        owner && ownerUserId
-          ? await this.userRedisService.getUserSocketClients(ownerUserId)
-          : [];
-
-      const targetSockets = [...new Set([...ownerSockets, ...roleSockets])];
+      const targetSockets = await this.resolveTargetSockets({
+        user_id: ownerUserId,
+        owner,
+        roles,
+      });
 
       if (targetSockets.length === 0) {
         console.log(
@@ -67,6 +81,46 @@ export class OrderGateway {
       );
     } catch (error) {
       console.error('Socket emit xatosi:', error);
+    }
+  }
+
+  async emitNotification({
+    title,
+    message,
+    user_id,
+    owner = false,
+    roles = [],
+    time,
+  }: {
+    title: string;
+    message: string;
+    user_id?: number;
+    owner?: boolean;
+    roles?: AuthRoleEnum[];
+    time?: string;
+  }) {
+    try {
+      const targetSockets = await this.resolveTargetSockets({
+        user_id,
+        owner,
+        roles,
+      });
+
+      if (targetSockets.length === 0) {
+        return;
+      }
+
+      const payload = {
+        title,
+        message,
+        time: time ?? new Date().toISOString(),
+      };
+
+      targetSockets.forEach((id) => {
+        this.server.to(id).emit(ORDER_SOCKET_EVENTS.HANDLE_NOTIFICATION, payload);
+      });
+    } catch (error) {
+      console.error('Notification emit xatosi:', error);
     }
   }
 

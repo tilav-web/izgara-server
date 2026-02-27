@@ -749,6 +749,11 @@ export class OrderService {
       action: 'updated',
       roles: [AuthRoleEnum.SUPERADMIN],
     });
+    await this.orderGateway.emitNotification({
+      title: 'Buyurtma bekor qilindi',
+      message: `Buyurtma #${result.order_number ?? result.id} foydalanuvchi tomonidan bekor qilindi`,
+      roles: [AuthRoleEnum.SUPERADMIN],
+    });
     return result;
   }
 }
