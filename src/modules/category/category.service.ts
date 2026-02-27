@@ -6,6 +6,7 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { FileService } from '../file/file.service';
 import { FileFolderEnum } from '../file/enums/file-folder.enum';
 import { CategoryRedisService } from '../redis/category-redis.service';
+import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 
 @Injectable()
 export class CategoryService {
@@ -16,27 +17,37 @@ export class CategoryService {
     private readonly categoryRedisService: CategoryRedisService,
   ) {}
 
-  async findAll() {
+  async findAll(role?: AuthRoleEnum) {
     const cacheCategories = await this.categoryRedisService.getAllCategories();
 
-    if (cacheCategories) return cacheCategories;
+    if (cacheCategories) {
+      if (role === AuthRoleEnum.SUPERADMIN) return cacheCategories;
+      return cacheCategories.filter((category) => category.is_active);
+    }
 
     const categories = await this.repository.find();
     await this.categoryRedisService.setCategories(categories);
 
-    return categories;
+    if (role === AuthRoleEnum.SUPERADMIN) return categories;
+    return categories.filter((category) => category.is_active);
   }
 
-  async findById(id: string) {
+  async findById(id: string, role?: AuthRoleEnum) {
     const category = await this.categoryRedisService.getCategoryById(id);
 
-    if (category) return category;
+    if (category) {
+      if (role === AuthRoleEnum.SUPERADMIN) return category;
+      return category.is_active ? category : null;
+    }
 
-    return this.repository.findOne({
+    const categoryDb = await this.repository.findOne({
       where: {
         id,
       },
     });
+
+    if (role === AuthRoleEnum.SUPERADMIN) return categoryDb;
+    return categoryDb?.is_active ? categoryDb : null;
   }
 
   async upsertMany(

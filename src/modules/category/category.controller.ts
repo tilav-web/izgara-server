@@ -26,6 +26,23 @@ export class CategoryController {
   async findAll() {
     return this.categoryService.findAll();
   }
+
+  @Get('/admin/all')
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
+  @Roles(AuthRoleEnum.SUPERADMIN)
+  @ApiBearerAuth('access_token')
+  async findAllForAdmin() {
+    return this.categoryService.findAll(AuthRoleEnum.SUPERADMIN);
+  }
+
+  @Get('/admin/:id')
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
+  @Roles(AuthRoleEnum.SUPERADMIN)
+  @ApiBearerAuth('access_token')
+  async findByIdForAdmin(@Param('id') id: string) {
+    return this.categoryService.findById(id, AuthRoleEnum.SUPERADMIN);
+  }
+
   @Get('/:id')
   async findById(@Param('id') id: string) {
     return this.categoryService.findById(id);
