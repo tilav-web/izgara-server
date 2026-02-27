@@ -720,6 +720,7 @@ export class OrderService {
         id: order_id,
         user_id: user.id,
       },
+      relations: { user: true },
     });
 
     if (!order) {
@@ -749,7 +750,7 @@ export class OrderService {
 
     await this.userService.invalidateUserCacheByUserId(result.user_id);
     await this.orderGateway.emitOrderEvent({
-      order: result,
+      order: { ...result, user: order.user } as Order,
       action: 'updated',
       roles: [AuthRoleEnum.SUPERADMIN],
     });
@@ -758,6 +759,6 @@ export class OrderService {
       message: `Buyurtma #${result.order_number ?? result.id} foydalanuvchi tomonidan bekor qilindi`,
       roles: [AuthRoleEnum.SUPERADMIN],
     });
-    return result;
+    return { ...result, user: order.user } as Order;
   }
 }
