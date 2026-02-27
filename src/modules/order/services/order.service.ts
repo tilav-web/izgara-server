@@ -163,6 +163,7 @@ export class OrderService {
     });
 
     await this.orderRepository.save(order);
+    order.user = user;
     return order;
   }
 
@@ -223,6 +224,8 @@ export class OrderService {
     if (!savedOrder) {
       throw new BadRequestException('Order saqlanmadi!');
     }
+
+    savedOrder.user = user;
 
     await this.userService.invalidateUserCacheByUserId(savedOrder.user_id);
     await this.orderGateway.emitOrderEvent({
@@ -602,12 +605,8 @@ export class OrderService {
   async updateOrderForAdmin(order_id: string, dto: UpdateOrderDto) {
     const result = await this.dataSource.transaction(async (manager) => {
       const order = await manager.findOne(Order, {
-        where: {
-          id: order_id,
-        },
-        relations: {
-          user: true,
-        },
+        where: { id: order_id },
+        relations: { user: true },
       });
 
       if (!order) {
@@ -617,10 +616,11 @@ export class OrderService {
       if (
         dto.status === OrderStatusEnum.NEW &&
         order.status !== OrderStatusEnum.NEW
-      )
+      ) {
         throw new BadRequestException(
           "Order status ni NEW ga o'zgartira olmaysiz!",
         );
+      }
 
       if (
         dto.status &&
@@ -666,6 +666,7 @@ export class OrderService {
       order: result,
       user_id: result.user_id,
     });
+
     return result;
   }
 
