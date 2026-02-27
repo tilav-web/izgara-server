@@ -28,11 +28,11 @@ import { EntityManager } from 'typeorm';
 import { UpdateOrderDto } from '../dto/update-order.dto';
 import { DeliverySettingsService } from '../../deliverySettings/delivery-settings.service';
 import { OrderStatusEnum } from '../enums/order-status.enum';
-import { OrderGateway } from '../../socket/gateways/order.gateway';
 import { generatePaymeUrl } from '../../../utils/generate-payme-url';
 import { Location } from '../../location/location.entity';
 import { OrderItem } from '../schemas/order-item.entity';
 import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
+import { OrderGateway } from '../../socket/gateways/order/order.gateway';
 
 type CreateOrderContext = {
   dto: CreateOrderDto;

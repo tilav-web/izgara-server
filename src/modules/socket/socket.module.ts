@@ -1,7 +1,7 @@
 import { SocketGateway } from './gateways/socket.gateway';
 import { Module } from '@nestjs/common';
-import { OrderGateway } from './gateways/order.gateway';
 import { UserModule } from '../user/user.module';
+import { OrderGateway } from './gateways/order/order.gateway';
 
 @Module({
   imports: [UserModule],

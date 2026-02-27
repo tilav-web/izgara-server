@@ -1,8 +1,9 @@
 import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { UserRedisService } from '../../redis/user-redis.service';
-import { Order } from '../../order/schemas/order.entity';
-import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
+import { Order } from '../../../order/schemas/order.entity';
+import { UserRedisService } from '../../../redis/user-redis.service';
+import { AuthRoleEnum } from '../../../auth/enums/auth-role.enum';
+import { ORDER_SOCKET_EVENTS } from './constants';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class OrderGateway {
@@ -55,7 +56,7 @@ export class OrderGateway {
       };
 
       targetSockets.forEach((id) => {
-        this.server.to(id).emit('handle_order', payload);
+        this.server.to(id).emit(ORDER_SOCKET_EVENTS.HANDLE_ORDER, payload);
       });
 
       console.log(
