@@ -39,9 +39,15 @@ export class CategoryController {
   @UseInterceptors(FileInterceptor('image'))
   async updateCategory(
     @Param('id') id: string,
-    @Body() { name, sort_order }: UpdateCategoryDto,
+    @Body() { name, sort_order, is_active }: UpdateCategoryDto,
     @UploadedFile() image?: Express.Multer.File,
   ) {
-    return this.categoryService.updateCategory({ id, name, sort_order, image });
+    return this.categoryService.updateCategory({
+      id,
+      name,
+      sort_order,
+      is_active,
+      image,
+    });
   }
 }

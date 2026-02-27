@@ -54,8 +54,12 @@ export class CategoryService {
     id,
     name,
     sort_order,
+    is_active,
     image,
-  }: { id: string; image?: Express.Multer.File } & UpdateCategoryDto) {
+  }: {
+    id: string;
+    image?: Express.Multer.File;
+  } & UpdateCategoryDto) {
     const category = await this.repository.findOne({
       where: {
         id,
@@ -78,6 +82,7 @@ export class CategoryService {
     }
     if (name) category.name = name;
     if (sort_order !== undefined) category.sort_order = sort_order;
+    if (is_active !== undefined) category.is_active = is_active;
 
     await this.categoryRedisService.invalidate();
     return this.repository.save(category);

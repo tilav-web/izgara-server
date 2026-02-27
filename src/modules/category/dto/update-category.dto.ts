@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class UpdateCategoryDto {
   @ApiPropertyOptional({
@@ -19,6 +19,15 @@ export class UpdateCategoryDto {
   @IsNumber()
   @Type(() => Number)
   sort_order?: number;
+
+  @ApiPropertyOptional({
+    example: true,
+    default: true,
+    description: "Kategoriya faol yoki o'chirilgan holati",
+  })
+  @IsOptional()
+  @IsBoolean()
+  is_active?: boolean;
 
   @ApiPropertyOptional({
     type: 'string',

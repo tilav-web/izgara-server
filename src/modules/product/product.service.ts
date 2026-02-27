@@ -5,15 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from './product.entity';
-import {
-  Between,
-  DeepPartial,
-  FindOptionsWhere,
-  In,
-  LessThanOrEqual,
-  MoreThanOrEqual,
-  Repository,
-} from 'typeorm';
+import { DeepPartial, In, Repository } from 'typeorm';
 import { FindAllFilterDto } from './dto/find-all-filter.dto';
 import { CoinSettingsService } from '../coinSettings/coin-settings.service';
 import { calculatePriceToCoin } from '../../utils/calculate-coin';
@@ -24,6 +16,7 @@ import { OrderProductDto } from '../order/dto/order-product.dto';
 import { Modifier } from '../modifier/modifier.entity';
 import { OrderItem } from '../order/schemas/order-item.entity';
 import { OrderItemModifier } from '../order/schemas/order-item-modifier.entity';
+import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 
 @Injectable()
 export class ProductService {
@@ -37,6 +30,24 @@ export class ProductService {
 
   async saveMenu(products: DeepPartial<Product>[]) {
     return await this.repository.save(products);
+  }
+
+  private validateOrderableProducts(products: Product[]) {
+    const inactiveProduct = products.find((product) => !product.is_active);
+    if (inactiveProduct) {
+      throw new BadRequestException(
+        `Mahsulot vaqtincha faol emas: ${inactiveProduct.name}`,
+      );
+    }
+
+    const inactiveCategoryProduct = products.find(
+      (product) => !product.category || !product.category.is_active,
+    );
+    if (inactiveCategoryProduct) {
+      throw new BadRequestException(
+        `Mahsulot kategoriyasi faol emas: ${inactiveCategoryProduct.name}`,
+      );
+    }
   }
 
   async getTotalPrice(dto: OrderProductDto[]) {
@@ -53,7 +64,10 @@ export class ProductService {
 
     // 2. Bazadan ma'lumotlarni parallel olish
     const [products, modifiers] = await Promise.all([
-      this.repository.find({ where: { id: In(productIds) } }),
+      this.repository.find({
+        where: { id: In(productIds) },
+        relations: { category: true },
+      }),
       this.modifierRepository.find({
         where: { id: In(modifierIds) },
         relations: { group: true },
@@ -64,6 +78,8 @@ export class ProductService {
     if (products.length !== productIds.length) {
       throw new BadRequestException("Ba'zi mahsulotlar topilmadi!");
     }
+
+    this.validateOrderableProducts(products);
 
     // 4. Map orqali qidiruvni tezlashtiramiz
     const productMap = new Map(products.map((p) => [p.id, p]));
@@ -115,38 +131,53 @@ export class ProductService {
     return { items_price };
   }
 
-  async findAll({
-    page = 1,
-    limit = 10,
-    category_id,
-    price_min,
-    price_max,
-  }: FindAllFilterDto) {
-    const filter: FindOptionsWhere<Product> = {};
-    if (category_id) filter.category_id = category_id;
-
+  async findAll(
+    {
+      page = 1,
+      limit = 10,
+      category_id,
+      price_min,
+      price_max,
+    }: FindAllFilterDto,
+    role?: AuthRoleEnum,
+  ) {
     const coinSettings = await this.coinSettingsService.findCoinSettings();
 
-    if (price_min && price_max) {
+    const qb = this.repository
+      .createQueryBuilder('product')
+      .leftJoin('product.category', 'category');
+
+    if (category_id) {
+      qb.andWhere('product.category_id = :category_id', { category_id });
+    }
+
+    if (role !== AuthRoleEnum.SUPERADMIN) {
+      qb.andWhere('category.is_active = :categoryActive', {
+        categoryActive: true,
+      });
+    }
+
+    if (price_min !== undefined && price_max !== undefined) {
       if (price_min > price_max) {
         throw new BadRequestException(
           "Narx bo'yicha qidirish uchun min va max mantiqan to'g'ri bo'lishi kerak!",
         );
       }
-      filter.price = Between(price_min, price_max);
-    } else if (price_min) {
-      filter.price = MoreThanOrEqual(price_min);
-    } else if (price_max) {
-      filter.price = LessThanOrEqual(price_max);
+      qb.andWhere('product.price BETWEEN :price_min AND :price_max', {
+        price_min,
+        price_max,
+      });
+    } else if (price_min !== undefined) {
+      qb.andWhere('product.price >= :price_min', { price_min });
+    } else if (price_max !== undefined) {
+      qb.andWhere('product.price <= :price_max', { price_max });
     }
 
     const skip = (page - 1) * limit;
 
-    const [data, total] = await this.repository.findAndCount({
-      where: filter,
-      take: limit,
-      skip,
-    });
+    qb.skip(skip).take(limit);
+
+    const [data, total] = await qb.getManyAndCount();
 
     const products = data.map((item) => {
       return {
@@ -248,7 +279,10 @@ export class ProductService {
 
     // 2. Bazadan ma'lumotlarni parallel olish
     const [products, modifiers] = await Promise.all([
-      this.repository.find({ where: { id: In(productIds) } }),
+      this.repository.find({
+        where: { id: In(productIds) },
+        relations: { category: true },
+      }),
       this.modifierRepository.find({
         where: { id: In(modifierIds) },
         relations: { group: true },
@@ -259,6 +293,8 @@ export class ProductService {
     if (products.length !== [...new Set(productIds)].length) {
       throw new NotFoundException("Ba'zi mahsulotlar topilmadi!");
     }
+
+    this.validateOrderableProducts(products);
 
     // 4. Map-lar orqali optimallash
     const productMap = new Map(products.map((p) => [p.id, p]));
