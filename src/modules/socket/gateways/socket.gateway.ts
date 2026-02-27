@@ -10,9 +10,11 @@ import { Server, Socket } from 'socket.io';
 import { UserRedisService } from '../../redis/user-redis.service';
 import { JwtTypeEnum } from '../../auth/enums/jwt-type.enum';
 import { UserService } from '../../user/user.service';
+import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
 
 type SocketData = {
   user_id?: number;
+  role?: AuthRoleEnum;
 };
 
 @WebSocketGateway({
@@ -70,10 +72,17 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       client.data.user_id = user.id;
+      client.data.role = user.role;
       await this.userRedisService.setUserWithSocketClientId({
         user_id: user.id,
         client_id: client.id,
       });
+      if (user.role === AuthRoleEnum.SUPERADMIN) {
+        await this.userRedisService.setRoleSocketClientId({
+          role: AuthRoleEnum.SUPERADMIN,
+          client_id: client.id,
+        });
+      }
 
       console.log(`User ${user.id} ulandi. Socket ID: ${client.id}`);
     } catch (error) {
@@ -85,9 +94,16 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleDisconnect(client: Socket<any, any, any, SocketData>) {
     try {
       const user_id = Number(client.data.user_id);
+      const role = client.data.role;
 
       if (user_id) {
         await this.userRedisService.removeSocketClientId(user_id, client.id);
+        if (role === AuthRoleEnum.SUPERADMIN) {
+          await this.userRedisService.removeRoleSocketClientId(
+            AuthRoleEnum.SUPERADMIN,
+            client.id,
+          );
+        }
         console.log(`User ${user_id} uzildi. Socket ID: ${client.id}`);
       }
     } catch (error) {

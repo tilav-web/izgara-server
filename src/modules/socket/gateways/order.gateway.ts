@@ -2,6 +2,7 @@ import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { UserRedisService } from '../../redis/user-redis.service';
 import { Order } from '../../order/schemas/order.entity';
+import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
 
 @WebSocketGateway({ cors: { origin: '*' } })
 export class OrderGateway {
@@ -10,29 +11,70 @@ export class OrderGateway {
 
   constructor(private readonly userRedisService: UserRedisService) {}
 
-  async handleOrder({ user_id, order }: { user_id: number; order: Order }) {
+  async emitOrderEvent({
+    order,
+    action,
+    user_id,
+    owner = true,
+    roles = [],
+  }: {
+    order: Order;
+    action: 'created' | 'updated';
+    user_id?: number;
+    owner?: boolean;
+    roles?: AuthRoleEnum[];
+  }) {
     try {
-      const sockets = await this.userRedisService.getUserSocketClients(user_id);
+      const ownerUserId = user_id ?? order.user_id;
+      const uniqueRoles = [...new Set(roles)];
+      const roleSocketsList = await Promise.all(
+        uniqueRoles.map((role) =>
+          this.userRedisService.getRoleSocketClients(role),
+        ),
+      );
+      const roleSockets = roleSocketsList.flat();
 
-      if (!sockets || sockets.length === 0) {
-        console.log(`User ${user_id} hozirda oflayn.`);
+      const ownerSockets =
+        owner && ownerUserId
+          ? await this.userRedisService.getUserSocketClients(ownerUserId)
+          : [];
+
+      const targetSockets = [...new Set([...ownerSockets, ...roleSockets])];
+
+      if (targetSockets.length === 0) {
+        console.log(
+          `Order ${order.id} uchun emit qabul qiluvchi socket topilmadi.`,
+        );
         return;
       }
 
       const payload = {
         order,
+        action,
         timestamp: new Date().toISOString(),
       };
 
-      sockets.forEach((id) => {
-        this.server.to(id).emit('handle_order_status', payload);
+      targetSockets.forEach((id) => {
+        this.server.to(id).emit('handle_order', payload);
       });
 
       console.log(
-        `User ${user_id} ga order status yuborildi: ${JSON.stringify(payload)}`,
+        `Order socket emit yuborildi (${action}): ${JSON.stringify({
+          order_id: order.id,
+          targets: targetSockets.length,
+        })}`,
       );
     } catch (error) {
       console.error('Socket emit xatosi:', error);
     }
+  }
+
+  async handleOrder({ user_id, order }: { user_id: number; order: Order }) {
+    await this.emitOrderEvent({
+      order,
+      user_id,
+      action: 'updated',
+      roles: [AuthRoleEnum.SUPERADMIN],
+    });
   }
 }

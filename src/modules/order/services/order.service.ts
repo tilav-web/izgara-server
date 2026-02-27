@@ -32,6 +32,7 @@ import { OrderGateway } from '../../socket/gateways/order.gateway';
 import { generatePaymeUrl } from '../../../utils/generate-payme-url';
 import { Location } from '../../location/location.entity';
 import { OrderItem } from '../schemas/order-item.entity';
+import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
 
 type CreateOrderContext = {
   dto: CreateOrderDto;
@@ -224,23 +225,43 @@ export class OrderService {
     }
 
     await this.userService.invalidateUserCacheByUserId(savedOrder.user_id);
+    await this.orderGateway.emitOrderEvent({
+      order: savedOrder,
+      action: 'created',
+      owner: false,
+      roles: [AuthRoleEnum.SUPERADMIN],
+    });
     return savedOrder;
   }
 
   // payment cash
   private async paymentCash(ctx: CreateOrderContext): Promise<Order> {
-    return this.createAndSaveOrder({
+    const order = await this.createAndSaveOrder({
       ...ctx,
       payment_method: OrderPaymentMethodEnum.PAYMENT_CASH,
     });
+    await this.orderGateway.emitOrderEvent({
+      order,
+      action: 'created',
+      owner: false,
+      roles: [AuthRoleEnum.SUPERADMIN],
+    });
+    return order;
   }
 
   // payment terminal
   private async paymentTerminal(ctx: CreateOrderContext): Promise<Order> {
-    return this.createAndSaveOrder({
+    const order = await this.createAndSaveOrder({
       ...ctx,
       payment_method: OrderPaymentMethodEnum.PAYMENT_TERMINAL,
     });
+    await this.orderGateway.emitOrderEvent({
+      order,
+      action: 'created',
+      owner: false,
+      roles: [AuthRoleEnum.SUPERADMIN],
+    });
+    return order;
   }
 
   // payment online
@@ -256,6 +277,12 @@ export class OrderService {
     const order = await this.createAndSaveOrder({
       ...ctx,
       payment_method: OrderPaymentMethodEnum.PAYMENT_ONLINE,
+    });
+    await this.orderGateway.emitOrderEvent({
+      order,
+      action: 'created',
+      owner: false,
+      roles: [AuthRoleEnum.SUPERADMIN],
     });
 
     switch (ctx.dto.payment_provider) {
@@ -485,13 +512,21 @@ export class OrderService {
       return manager.save(order);
     }
 
-    return this.dataSource.transaction((txManager) =>
+    const updatedOrder = await this.dataSource.transaction((txManager) =>
       this.updatePaymentStatusWithCoinSync(
         order_id,
         nextPaymentStatus,
         txManager,
       ),
     );
+
+    await this.orderGateway.emitOrderEvent({
+      order: updatedOrder,
+      action: 'updated',
+      roles: [AuthRoleEnum.SUPERADMIN],
+    });
+
+    return updatedOrder;
   }
 
   // Bu metod controllerda chaqiriladi
@@ -709,6 +744,11 @@ export class OrderService {
     });
 
     await this.userService.invalidateUserCacheByUserId(result.user_id);
+    await this.orderGateway.emitOrderEvent({
+      order: result,
+      action: 'updated',
+      roles: [AuthRoleEnum.SUPERADMIN],
+    });
     return result;
   }
 }
