@@ -1,12 +1,50 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Bot } from 'grammy';
+import { Repository } from 'typeorm';
+import { Auth } from '../../auth/auth.entity';
+import { AuthStatusEnum } from '../../auth/enums/status.enum';
 
 @Injectable()
 export class StartCommand {
-  constructor() {}
+  constructor(
+    @InjectRepository(Auth)
+    private readonly authRepository: Repository<Auth>,
+  ) {}
 
   register(bot: Bot) {
     bot.command('start', async (ctx) => {
+      const telegramId = ctx.from?.id ? String(ctx.from.id) : null;
+
+      if (!telegramId) {
+        await ctx.reply("Telegram foydalanuvchi ma'lumoti topilmadi.");
+        return;
+      }
+
+      const auth = await this.authRepository.findOne({
+        where: { telegram_id: telegramId },
+      });
+
+      if (auth?.status === AuthStatusEnum.BLOCK) {
+        await ctx.reply(
+          "Siz blocklangansiz. Iltimos, admin bilan bog'laning.",
+          {
+            reply_markup: { remove_keyboard: true },
+          },
+        );
+        return;
+      }
+
+      if (auth?.phone) {
+        await ctx.reply(
+          "Bot qayta ishga tushdi. Siz allaqachon ro'yxatdan o'tgansiz.",
+          {
+            reply_markup: { remove_keyboard: true },
+          },
+        );
+        return;
+      }
+
       await ctx.reply(
         "Assalomu alaykum! Izgara botiga xush kelibsiz. Ro'hatdan o'tish uchun telefon raqamingizni yuboring.",
         {
