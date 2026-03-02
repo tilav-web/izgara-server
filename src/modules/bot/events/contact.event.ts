@@ -8,6 +8,7 @@ import { AuthStatusEnum } from '../../auth/enums/status.enum';
 import { regexPhone } from '../../auth/utils/regex-phone';
 import { AuthRedisService } from '../../redis/auth-redis.service';
 import { UserRedisService } from '../../redis/user-redis.service';
+import { TelegramStatusEnum } from '../../auth/guard/telegram-status.enum';
 
 @Injectable()
 export class ContactEvent {
@@ -20,7 +21,61 @@ export class ContactEvent {
     private readonly userRedisService: UserRedisService,
   ) {}
 
+  private async safeSetAuthCache(auth: Auth) {
+    try {
+      await this.authRedisService.setAuthDetails({ auth });
+    } catch (error) {
+      console.error('Failed to sync auth cache after DB update:', error);
+    }
+  }
+
+  private async safeSetUserCache(user: User, auth_id: number) {
+    try {
+      await this.userRedisService.setUserDetails({ user, auth_id });
+    } catch (error) {
+      console.error('Failed to sync user cache after DB update:', error);
+    }
+  }
+
   register(bot: Bot) {
+    bot.on('my_chat_member', async (ctx) => {
+      const telegramId = ctx.from?.id ? String(ctx.from.id) : null;
+      if (!telegramId) return;
+
+      const auth = await this.authRepository.findOne({
+        where: { telegram_id: telegramId },
+      });
+      if (!auth) return;
+
+      const nextStatus = ctx.update.my_chat_member.new_chat_member.status;
+      const shouldBeActive =
+        nextStatus === 'member' ||
+        nextStatus === 'administrator' ||
+        nextStatus === 'creator';
+      const shouldBeNotActive =
+        nextStatus === 'kicked' || nextStatus === 'left';
+
+      if (
+        shouldBeActive &&
+        auth.telegram_status !== TelegramStatusEnum.ACTIVE &&
+        auth.status !== AuthStatusEnum.BLOCK
+      ) {
+        auth.telegram_status = TelegramStatusEnum.ACTIVE;
+        const updatedAuth = await this.authRepository.save(auth);
+        await this.safeSetAuthCache(updatedAuth);
+        return;
+      }
+
+      if (
+        shouldBeNotActive &&
+        auth.telegram_status !== TelegramStatusEnum.NOT_ACTIVE
+      ) {
+        auth.telegram_status = TelegramStatusEnum.NOT_ACTIVE;
+        const updatedAuth = await this.authRepository.save(auth);
+        await this.safeSetAuthCache(updatedAuth);
+      }
+    });
+
     bot.on('message', async (ctx, next) => {
       const telegramId = ctx.from?.id ? String(ctx.from.id) : null;
 
@@ -94,6 +149,11 @@ export class ContactEvent {
       }
 
       if (authByTelegram && authByTelegram.phone === cleanPhone) {
+        if (authByTelegram.telegram_status !== TelegramStatusEnum.ACTIVE) {
+          authByTelegram.telegram_status = TelegramStatusEnum.ACTIVE;
+          const updatedAuth = await this.authRepository.save(authByTelegram);
+          await this.safeSetAuthCache(updatedAuth);
+        }
         await ctx.reply('Telefon raqamingiz allaqachon tasdiqlangan.');
         return;
       }
@@ -116,17 +176,15 @@ export class ContactEvent {
 
       if (authByPhone) {
         authByPhone.telegram_id = telegramId;
+        authByPhone.telegram_status = TelegramStatusEnum.ACTIVE;
         const updatedAuth = await this.authRepository.save(authByPhone);
         const user = await this.userRepository.findOne({
           where: { id: updatedAuth.user_id },
         });
 
-        await this.authRedisService.setAuthDetails({ auth: updatedAuth });
+        await this.safeSetAuthCache(updatedAuth);
         if (user) {
-          await this.userRedisService.setUserDetails({
-            user,
-            auth_id: updatedAuth.id,
-          });
+          await this.safeSetUserCache(user, updatedAuth.id);
         }
 
         await ctx.reply("Muvaffaqiyatli bog'landi. Siz tizimga kirdingiz.", {
@@ -143,6 +201,7 @@ export class ContactEvent {
           const auth = manager.create(Auth, {
             phone: cleanPhone,
             telegram_id: telegramId,
+            telegram_status: TelegramStatusEnum.ACTIVE,
             user: savedUser,
           });
           const savedAuth = await manager.save(Auth, auth);
@@ -151,13 +210,11 @@ export class ContactEvent {
         },
       );
 
-      await this.authRedisService.setAuthDetails({
-        auth: createdAuth.savedAuth,
-      });
-      await this.userRedisService.setUserDetails({
-        user: createdAuth.savedUser,
-        auth_id: createdAuth.savedAuth.id,
-      });
+      await this.safeSetAuthCache(createdAuth.savedAuth);
+      await this.safeSetUserCache(
+        createdAuth.savedUser,
+        createdAuth.savedAuth.id,
+      );
 
       await ctx.reply("Ro'yxatdan o'tish muvaffaqiyatli yakunlandi.", {
         reply_markup: { remove_keyboard: true },

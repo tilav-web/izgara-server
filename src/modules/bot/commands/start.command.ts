@@ -4,12 +4,15 @@ import { Bot } from 'grammy';
 import { Repository } from 'typeorm';
 import { Auth } from '../../auth/auth.entity';
 import { AuthStatusEnum } from '../../auth/enums/status.enum';
+import { TelegramStatusEnum } from '../../auth/guard/telegram-status.enum';
+import { AuthRedisService } from '../../redis/auth-redis.service';
 
 @Injectable()
 export class StartCommand {
   constructor(
     @InjectRepository(Auth)
     private readonly authRepository: Repository<Auth>,
+    private readonly authRedisService: AuthRedisService,
   ) {}
 
   register(bot: Bot) {
@@ -36,6 +39,12 @@ export class StartCommand {
       }
 
       if (auth?.phone) {
+        if (auth.telegram_status !== TelegramStatusEnum.ACTIVE) {
+          auth.telegram_status = TelegramStatusEnum.ACTIVE;
+          const updatedAuth = await this.authRepository.save(auth);
+          await this.authRedisService.setAuthDetails({ auth: updatedAuth });
+        }
+
         await ctx.reply(
           "Bot qayta ishga tushdi. Siz allaqachon ro'yxatdan o'tgansiz.",
           {

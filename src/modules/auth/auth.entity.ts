@@ -10,6 +10,7 @@ import {
 import { AuthRoleEnum } from './enums/auth-role.enum';
 import { AuthStatusEnum } from './enums/status.enum';
 import { User } from '../user/user.entity';
+import { TelegramStatusEnum } from './guard/telegram-status.enum';
 
 @Entity('auths')
 export class Auth {
@@ -18,6 +19,13 @@ export class Auth {
 
   @Column({ type: 'bigint', nullable: true, unique: true, default: null })
   telegram_id: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: TelegramStatusEnum,
+    default: TelegramStatusEnum.ACTIVE,
+  })
+  telegram_status: TelegramStatusEnum;
 
   @Column({ type: 'varchar', length: 12, unique: true, nullable: false })
   phone: string;

@@ -6,7 +6,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Auth } from './auth.entity';
 import { Repository } from 'typeorm';
 import { otpCodeGenerate } from './utils/otp-code.generate';
 import { regexPhone } from './utils/regex-phone';
@@ -21,6 +20,8 @@ import { UpdateUserAuthDto } from './dto/update-user-auth.dto';
 import { AuthStatusEnum } from './enums/status.enum';
 import { User } from '../user/user.entity';
 import { JwtTypeEnum } from './enums/jwt-type.enum';
+import { TelegramStatusEnum } from './guard/telegram-status.enum';
+import { Auth } from './auth.entity';
 
 @Injectable()
 export class AuthService {
@@ -329,6 +330,19 @@ export class AuthService {
     if (role === AuthRoleEnum.SUPERADMIN && !isEnvSuperAdmin)
       throw new ForbiddenException(
         `${AuthRoleEnum.SUPERADMIN} role-ni berish uchun siz super puper admin bo'lishingiz kerak!`,
+      );
+
+    if (role === AuthRoleEnum.DELIVERY && !userAuth.telegram_id)
+      throw new ForbiddenException(
+        "Foydalanuvchini DELIVERY role-ga o'tkazish uchun u Telegram bot orqali ro'yxatdan o'tgan bo'lishi kerak.",
+      );
+
+    if (
+      role === AuthRoleEnum.DELIVERY &&
+      userAuth.telegram_status !== TelegramStatusEnum.ACTIVE
+    )
+      throw new ForbiddenException(
+        'Foydalanuvchi Telegram botni blocklagan yoki faol emas. DELIVERY role berishdan oldin botni faollashtirsin.',
       );
 
     if (status === AuthStatusEnum.DELETED && userAuth.phone !== superAdminPhone)
