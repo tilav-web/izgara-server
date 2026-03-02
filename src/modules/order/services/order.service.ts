@@ -158,7 +158,8 @@ export class OrderService {
 
     await this.orderGateway.emitNotification({
       title: 'Yangi buyurtma',
-      message: `Buyurtma #${order.order_number ?? order.id} yaratildi`,
+      message: `Buyurtma yaratildi.`,
+      order_id: order.id,
       status: OrderNotificationStatusEnum.SUCCESS,
       roles: [AuthRoleEnum.SUPERADMIN],
     });
@@ -775,7 +776,8 @@ export class OrderService {
     });
     await this.orderGateway.emitNotification({
       title: 'Buyurtma bekor qilindi',
-      message: `Buyurtma #${result.order_number ?? result.id} foydalanuvchi tomonidan bekor qilindi`,
+      message: `Buyurtma foydalanuvchi tomonidan bekor qilindi`,
+      order_id: result.id,
       status: OrderNotificationStatusEnum.ERROR,
       roles: [AuthRoleEnum.SUPERADMIN],
     });

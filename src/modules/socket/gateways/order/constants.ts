@@ -10,6 +10,7 @@ export enum OrderNotificationStatusEnum {
 
 export type OrderNotificationPayload = {
   title: string;
+  order_id: string;
   message: string;
   status: OrderNotificationStatusEnum;
   time: string;

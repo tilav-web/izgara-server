@@ -98,6 +98,7 @@ export class OrderGateway {
     title,
     message,
     status,
+    order_id,
     user_id,
     owner = false,
     roles = [],
@@ -107,6 +108,7 @@ export class OrderGateway {
     message: string;
     status: OrderNotificationStatusEnum;
     user_id?: number;
+    order_id: string;
     owner?: boolean;
     roles?: AuthRoleEnum[];
     time?: string;
@@ -116,6 +118,7 @@ export class OrderGateway {
         title,
         message,
         status,
+        order_id,
         time: time ?? new Date().toISOString(),
       };
 
