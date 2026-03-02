@@ -20,13 +20,19 @@ export class FileService {
   async saveFile({
     file,
     folder,
+    entityId,
   }: {
     file: Express.Multer.File;
     folder: FileFolderEnum;
+    entityId?: string | number;
   }): Promise<string> {
     if (!file) throw new Error('File not provided');
 
-    const folderPath = join(this.uploadsPath, folder);
+    const safeEntityId = String(entityId ?? 'common').replace(
+      /[^a-zA-Z0-9_-]/g,
+      '_',
+    );
+    const folderPath = join(this.uploadsPath, folder, safeEntityId);
     if (!existsSync(folderPath)) {
       mkdirSync(folderPath, { recursive: true });
     }
@@ -48,13 +54,44 @@ export class FileService {
 
     await writeFile(filePath, webpBuffer);
 
-    return `${this.serverUrl}/uploads/${folder}/${filename}`;
+    return `${folder}/${safeEntityId}/${filename}`;
   }
 
-  async deleteFile(fileUrl: string) {
+  private normalizeKey(fileRef: string) {
+    if (!fileRef) return '';
+
+    if (fileRef.startsWith('http://') || fileRef.startsWith('https://')) {
+      try {
+        const parsed = new URL(fileRef);
+        const path = parsed.pathname.replace(/^\/+/, '');
+        if (path.startsWith('uploads/')) {
+          return path.replace(/^uploads\//, '');
+        }
+        return path;
+      } catch {
+        return fileRef;
+      }
+    }
+
+    return fileRef.replace(/^\/+/, '').replace(/^uploads\//, '');
+  }
+
+  getPublicUrl(fileRef?: string | null): string | null {
+    if (!fileRef) return null;
+    if (fileRef.startsWith('http://') || fileRef.startsWith('https://')) {
+      return fileRef;
+    }
+    const normalized = this.normalizeKey(fileRef);
+    if (!normalized) return null;
+    const baseUrl = (this.serverUrl || '').replace(/\/+$/, '');
+    if (!baseUrl) return `/uploads/${normalized}`;
+    return `${baseUrl}/uploads/${normalized}`;
+  }
+
+  async deleteFile(fileRef: string) {
     try {
-      const filePath = fileUrl.replace(this.serverUrl + '/', '');
-      const absolutePath = join(process.cwd(), filePath);
+      const key = this.normalizeKey(fileRef);
+      const absolutePath = join(this.uploadsPath, key);
 
       if (existsSync(absolutePath)) {
         await unlink(absolutePath);

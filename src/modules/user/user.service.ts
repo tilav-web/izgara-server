@@ -27,6 +27,13 @@ export class UserService {
     private readonly fileService: FileService,
   ) {}
 
+  private withImageUrl<T extends { image?: string | null }>(item: T): T {
+    return {
+      ...item,
+      image: this.fileService.getPublicUrl(item.image),
+    };
+  }
+
   async findAll({
     search,
     status,
@@ -63,9 +70,10 @@ export class UserService {
     qb.skip((page - 1) * limit).take(limit);
 
     const [users, total] = await qb.getManyAndCount();
+    const mappedUsers = users.map((user) => this.withImageUrl(user));
 
     return {
-      users,
+      users: mappedUsers,
       total,
       page,
       limit,
@@ -74,11 +82,13 @@ export class UserService {
   }
 
   async findById(id: number) {
-    return this.repository.findOne({ where: { id } });
+    const user = await this.repository.findOne({ where: { id } });
+    if (!user) return null;
+    return this.withImageUrl(user);
   }
 
   async findByIdForAdmin(id: number) {
-    return this.repository.findOne({
+    const user = await this.repository.findOne({
       where: {
         id,
       },
@@ -95,16 +105,19 @@ export class UserService {
         },
       },
     });
+    if (!user) return null;
+    return this.withImageUrl(user);
   }
 
   async findByAuthId(id: number) {
     const cacheUser = await this.userRedisService.getUserDetails(id);
-    if (cacheUser) return cacheUser;
+    if (cacheUser) return this.withImageUrl(cacheUser);
     const user = await this.repository.findOne({ where: { auth: { id } } });
     if (user) {
       await this.userRedisService.setUserDetails({ user, auth_id: id });
+      return this.withImageUrl(user);
     }
-    return user;
+    return null;
   }
 
   async create({
@@ -118,7 +131,7 @@ export class UserService {
   }) {
     const user = this.repository.create({ phone, first_name, last_name });
     const result = await this.repository.save(user);
-    return result;
+    return this.withImageUrl(result);
   }
 
   async update(
@@ -135,7 +148,9 @@ export class UserService {
       throw new BadRequestException('Hech qanday maydon yuborilmadi!');
     }
 
-    const user = await this.findByAuthId(auth_id);
+    const user = await this.repository.findOne({
+      where: { auth: { id: auth_id } },
+    });
 
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi!');
 
@@ -147,6 +162,7 @@ export class UserService {
       user.image = await this.fileService.saveFile({
         file: dto.image,
         folder: FileFolderEnum.PROFILES,
+        entityId: user.id,
       });
     }
 
@@ -176,7 +192,7 @@ export class UserService {
 
     const result = await this.repository.save(user);
     await this.userRedisService.setUserDetails({ user: result, auth_id });
-    return result;
+    return this.withImageUrl(result);
   }
 
   async getStatsUsers() {

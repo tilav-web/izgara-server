@@ -28,6 +28,13 @@ export class ProductService {
     private readonly fileService: FileService,
   ) {}
 
+  private withImageUrl<T extends { image?: string | null }>(item: T): T {
+    return {
+      ...item,
+      image: this.fileService.getPublicUrl(item.image),
+    };
+  }
+
   async saveMenu(products: DeepPartial<Product>[]) {
     return await this.repository.save(products);
   }
@@ -187,7 +194,7 @@ export class ProductService {
 
     const products = data.map((item) => {
       return {
-        ...item,
+        ...this.withImageUrl(item),
         ...calculatePriceToCoin({ product_price: item.price, coinSettings }),
       };
     });
@@ -218,7 +225,7 @@ export class ProductService {
     const coinSettings = await this.coinSettingsService.findCoinSettings();
 
     return {
-      ...product,
+      ...this.withImageUrl(product),
       ...calculatePriceToCoin({
         product_price: product?.price ?? 0,
         coinSettings,
@@ -254,6 +261,7 @@ export class ProductService {
       product.image = await this.fileService.saveFile({
         file: dto.image,
         folder: FileFolderEnum.PRODUCTS,
+        entityId: product.id,
       });
     }
 
@@ -273,7 +281,7 @@ export class ProductService {
       product.category_id = dto.category_id;
 
     const result = await this.repository.save(product);
-    return result;
+    return this.withImageUrl(result);
   }
 
   async findByIds(dto: OrderProductDto[]) {

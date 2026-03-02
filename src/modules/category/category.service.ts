@@ -17,27 +17,39 @@ export class CategoryService {
     private readonly categoryRedisService: CategoryRedisService,
   ) {}
 
+  private withImageUrl<T extends { image?: string | null }>(item: T): T {
+    return {
+      ...item,
+      image: this.fileService.getPublicUrl(item.image),
+    };
+  }
+
   async findAll(role?: AuthRoleEnum) {
     const cacheCategories = await this.categoryRedisService.getAllCategories();
 
     if (cacheCategories) {
-      if (role === AuthRoleEnum.SUPERADMIN) return cacheCategories;
-      return cacheCategories.filter((category) => category.is_active);
+      const mapped = cacheCategories.map((category) =>
+        this.withImageUrl(category),
+      );
+      if (role === AuthRoleEnum.SUPERADMIN) return mapped;
+      return mapped.filter((category) => category.is_active);
     }
 
     const categories = await this.repository.find();
     await this.categoryRedisService.setCategories(categories);
+    const mapped = categories.map((category) => this.withImageUrl(category));
 
-    if (role === AuthRoleEnum.SUPERADMIN) return categories;
-    return categories.filter((category) => category.is_active);
+    if (role === AuthRoleEnum.SUPERADMIN) return mapped;
+    return mapped.filter((category) => category.is_active);
   }
 
   async findById(id: string, role?: AuthRoleEnum) {
     const category = await this.categoryRedisService.getCategoryById(id);
 
     if (category) {
-      if (role === AuthRoleEnum.SUPERADMIN) return category;
-      return category.is_active ? category : null;
+      const mapped = this.withImageUrl(category);
+      if (role === AuthRoleEnum.SUPERADMIN) return mapped;
+      return mapped.is_active ? mapped : null;
     }
 
     const categoryDb = await this.repository.findOne({
@@ -46,8 +58,10 @@ export class CategoryService {
       },
     });
 
-    if (role === AuthRoleEnum.SUPERADMIN) return categoryDb;
-    return categoryDb?.is_active ? categoryDb : null;
+    if (!categoryDb) return null;
+    const mapped = this.withImageUrl(categoryDb);
+    if (role === AuthRoleEnum.SUPERADMIN) return mapped;
+    return mapped.is_active ? mapped : null;
   }
 
   async upsertMany(
@@ -89,6 +103,7 @@ export class CategoryService {
       category.image = await this.fileService.saveFile({
         file: image,
         folder: FileFolderEnum.CATEGORIES,
+        entityId: category.id,
       });
     }
     if (name) category.name = name;
@@ -96,6 +111,7 @@ export class CategoryService {
     if (is_active !== undefined) category.is_active = is_active;
 
     await this.categoryRedisService.invalidate();
-    return this.repository.save(category);
+    const result = await this.repository.save(category);
+    return this.withImageUrl(result);
   }
 }
