@@ -2,13 +2,19 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { Bot, webhookCallback } from 'grammy';
+import { StartCommand } from './commands/start.command';
+import { ContactEvent } from './events/contact.event';
 
 @Injectable()
 export class BotService implements OnModuleInit, OnModuleDestroy {
   private readonly bot: Bot;
   public webhookCallback?: (req: Request, res: Response) => Promise<void>;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly startCommand: StartCommand,
+    private readonly contactEvent: ContactEvent,
+  ) {
     const token = this.configService.get<string>('BOT_TOKEN');
     if (!token) {
       throw new Error(
@@ -63,13 +69,9 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   }
 
   private setupCommands() {
-    this.bot.command('start', async (ctx) => {
-      await ctx.reply(
-        'Welcome to the bot! Use /help to see available commands.',
-      );
-    });
+    this.startCommand.register(this.bot);
+    this.contactEvent.register(this.bot);
 
-    // Error handling for bot
     this.bot.catch((err) => {
       console.error('Bot error:', err);
     });
