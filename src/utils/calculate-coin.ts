@@ -12,11 +12,17 @@ export const calculatePriceToCoin = ({
 
   const spendAmountForOneCoin = Number(coinSettings.spend_amount_for_one_coin);
   const productPrice = Number(product_price);
-  if (spendAmountForOneCoin <= 0) return { coin_price: '0.00' };
+  if (
+    !Number.isFinite(spendAmountForOneCoin) ||
+    spendAmountForOneCoin <= 0 ||
+    !Number.isFinite(productPrice) ||
+    productPrice <= 0
+  )
+    return { coin_price: '0.00' };
 
   const coin_price = (productPrice / spendAmountForOneCoin).toFixed(2);
 
-  return { coin_price: parseFloat(coin_price).toString() };
+  return { coin_price };
 };
 
 export const calculateEarnedCoinsToPrice = ({
@@ -39,7 +45,8 @@ export const calculateEarnedCoinsToPrice = ({
     return { earned_coins: '0.00' };
   }
 
-  if (spendAmount <= 0) return { earned_coins: '0.00' };
+  if (!Number.isFinite(spendAmount) || spendAmount <= 0)
+    return { earned_coins: '0.00' };
   if (Number.isFinite(minSpendLimit) && totalPrice < minSpendLimit)
     return { earned_coins: '0.00' };
 
@@ -50,5 +57,5 @@ export const calculateEarnedCoinsToPrice = ({
   }
 
   const earned_coins = earnedCoins.toFixed(2);
-  return { earned_coins: parseFloat(earned_coins).toString() };
+  return { earned_coins };
 };
