@@ -35,6 +35,7 @@ import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
 import { OrderGateway } from '../../socket/gateways/order/order.gateway';
 import { OrderNotificationStatusEnum } from '../../socket/gateways/order/constants';
 import { OrderNotificationRedisService } from '../../redis/order-notification-redis.service';
+import { OrderBotService } from '../../bot/services/order-bot.service';
 
 type CreateOrderContext = {
   dto: CreateOrderDto;
@@ -60,6 +61,7 @@ export class OrderService {
     private readonly deliverySettingsService: DeliverySettingsService,
     private readonly orderGateway: OrderGateway,
     private readonly orderNotificationRedisService: OrderNotificationRedisService,
+    private readonly orderBotService: OrderBotService,
   ) {}
 
   async getAdminNotifications({
@@ -623,6 +625,8 @@ export class OrderService {
   }
 
   async updateOrderForAdmin(order_id: string, dto: UpdateOrderDto) {
+    let shouldNotifyDelivery = false;
+
     const result = await this.dataSource.transaction(async (manager) => {
       const order = await manager.findOne(Order, {
         where: { id: order_id },
@@ -670,6 +674,14 @@ export class OrderService {
       }
 
       if (dto.status) {
+        if (
+          dto.status === OrderStatusEnum.READY &&
+          order.status !== OrderStatusEnum.READY &&
+          order.order_type === OrderTypeEnum.DELIVERY
+        ) {
+          shouldNotifyDelivery = true;
+        }
+
         await this.applyCoinEffectsByOrderStatusChange(
           manager,
           order,
@@ -686,6 +698,10 @@ export class OrderService {
       order: result,
       user_id: result.user_id,
     });
+
+    if (shouldNotifyDelivery) {
+      await this.orderBotService.sendOrderNotificationToDelivery(result);
+    }
 
     return result;
   }

@@ -15,6 +15,7 @@ import { DeliverySettingsModule } from '../deliverySettings/delivery-settings.mo
 import { JobsModule } from '../jobs/jobs.module';
 import { PaymentTransaction } from '../payment/payment-transaction.entity';
 import { SocketModule } from '../socket/socket.module';
+import { BotModule } from '../bot/bot.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { SocketModule } from '../socket/socket.module';
     DeliverySettingsModule,
     JobsModule,
     SocketModule,
+    BotModule,
   ],
   controllers: [OrdersController],
   providers: [OrderService],
