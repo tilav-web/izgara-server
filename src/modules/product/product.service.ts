@@ -188,7 +188,7 @@ export class ProductService {
 
     const skip = (page - 1) * limit;
 
-    qb.skip(skip).take(limit);
+    qb.orderBy('product.created_at', 'ASC').skip(skip).take(limit);
 
     const [data, total] = await qb.getManyAndCount();
 

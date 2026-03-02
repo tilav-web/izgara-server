@@ -24,18 +24,30 @@ export class CategoryService {
     };
   }
 
+  private sortCategories(categories: Category[]) {
+    return [...categories].sort(
+      (a, b) =>
+        a.sort_order - b.sort_order ||
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+  }
+
   async findAll(role?: AuthRoleEnum) {
     const cacheCategories = await this.categoryRedisService.getAllCategories();
 
     if (cacheCategories) {
-      const mapped = cacheCategories.map((category) =>
-        this.withImageUrl(category),
-      );
+      const sorted = this.sortCategories(cacheCategories);
+      const mapped = sorted.map((category) => this.withImageUrl(category));
       if (role === AuthRoleEnum.SUPERADMIN) return mapped;
       return mapped.filter((category) => category.is_active);
     }
 
-    const categories = await this.repository.find();
+    const categories = await this.repository.find({
+      order: {
+        sort_order: 'ASC',
+        created_at: 'ASC',
+      },
+    });
     await this.categoryRedisService.setCategories(categories);
     const mapped = categories.map((category) => this.withImageUrl(category));
 
