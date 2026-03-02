@@ -7,6 +7,7 @@ import { UserRedisService } from './user-redis.service';
 import { CoinSettingsRedisService } from './coin-settings-redis.service';
 import { CategoryRedisService } from './category-redis.service';
 import { DeliverySettingsRedisService } from './delivery-seetings-redis.service';
+import { OrderNotificationRedisService } from './order-notification-redis.service';
 
 @Global()
 @Module({
@@ -29,6 +30,7 @@ import { DeliverySettingsRedisService } from './delivery-seetings-redis.service'
     CoinSettingsRedisService,
     CategoryRedisService,
     DeliverySettingsRedisService,
+    OrderNotificationRedisService,
   ],
   exports: [
     'REDIS_CLIENT',
@@ -38,6 +40,7 @@ import { DeliverySettingsRedisService } from './delivery-seetings-redis.service'
     CoinSettingsRedisService,
     CategoryRedisService,
     DeliverySettingsRedisService,
+    OrderNotificationRedisService,
   ],
 })
 export class RedisModule {}

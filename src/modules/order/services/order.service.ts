@@ -34,6 +34,7 @@ import { OrderItem } from '../schemas/order-item.entity';
 import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
 import { OrderGateway } from '../../socket/gateways/order/order.gateway';
 import { OrderNotificationStatusEnum } from '../../socket/gateways/order/constants';
+import { OrderNotificationRedisService } from '../../redis/order-notification-redis.service';
 
 type CreateOrderContext = {
   dto: CreateOrderDto;
@@ -58,7 +59,28 @@ export class OrderService {
     private readonly dataSource: DataSource,
     private readonly deliverySettingsService: DeliverySettingsService,
     private readonly orderGateway: OrderGateway,
+    private readonly orderNotificationRedisService: OrderNotificationRedisService,
   ) {}
+
+  async getAdminNotifications({
+    page = 1,
+    limit = 50,
+  }: {
+    page?: number;
+    limit?: number;
+  }) {
+    const notifications =
+      await this.orderNotificationRedisService.getNotifications({
+        page,
+        limit,
+      });
+
+    return {
+      notifications,
+      page,
+      limit,
+    };
+  }
 
   private async makeOrderTotalPrice(auth_id: number, dto: CreateOrderDto) {
     const user = await this.userService.findByAuthId(auth_id);

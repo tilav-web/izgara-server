@@ -3,6 +3,7 @@ import { Server } from 'socket.io';
 import { Order } from '../../../order/schemas/order.entity';
 import { UserRedisService } from '../../../redis/user-redis.service';
 import { AuthRoleEnum } from '../../../auth/enums/auth-role.enum';
+import { OrderNotificationRedisService } from '../../../redis/order-notification-redis.service';
 import {
   ORDER_SOCKET_EVENTS,
   OrderNotificationPayload,
@@ -14,7 +15,10 @@ export class OrderGateway {
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly userRedisService: UserRedisService) {}
+  constructor(
+    private readonly userRedisService: UserRedisService,
+    private readonly orderNotificationRedisService: OrderNotificationRedisService,
+  ) {}
 
   private async resolveTargetSockets({
     user_id,
@@ -108,6 +112,15 @@ export class OrderGateway {
     time?: string;
   }) {
     try {
+      const payload: OrderNotificationPayload = {
+        title,
+        message,
+        status,
+        time: time ?? new Date().toISOString(),
+      };
+
+      await this.orderNotificationRedisService.pushNotification({ payload });
+
       const targetSockets = await this.resolveTargetSockets({
         user_id,
         owner,
@@ -117,13 +130,6 @@ export class OrderGateway {
       if (targetSockets.length === 0) {
         return;
       }
-
-      const payload: OrderNotificationPayload = {
-        title,
-        message,
-        status,
-        time: time ?? new Date().toISOString(),
-      };
 
       targetSockets.forEach((id) => {
         this.server

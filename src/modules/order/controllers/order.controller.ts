@@ -34,6 +34,23 @@ export class OrdersController {
     return this.orderService.findAll(dto);
   }
 
+  @Get('/notifications')
+  @Roles(AuthRoleEnum.SUPERADMIN)
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
+  @ApiBearerAuth('access_token')
+  async getAdminNotifications(
+    @Query()
+    query: {
+      page?: string;
+      limit?: string;
+    },
+  ) {
+    return this.orderService.getAdminNotifications({
+      page: query.page ? Number(query.page) : 1,
+      limit: query.limit ? Number(query.limit) : 50,
+    });
+  }
+
   @Throttle({ default: { ttl: 10000, limit: 1 } })
   @Post('/create')
   @UseGuards(AuthGuard('jwt'), AuthStatusGuard)
