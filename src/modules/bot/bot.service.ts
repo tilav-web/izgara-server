@@ -1,9 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
-import { Repository } from 'typeorm';
-import { User } from '../user/user.entity';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Bot, webhookCallback } from 'grammy';
 
 @Injectable()
@@ -11,11 +8,7 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   private readonly bot: Bot;
   public webhookCallback?: (req: Request, res: Response) => Promise<void>;
 
-  constructor(
-    private readonly configService: ConfigService,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-  ) {
+  constructor(private readonly configService: ConfigService) {
     const token = this.configService.get<string>('BOT_TOKEN');
     if (!token) {
       throw new Error(
