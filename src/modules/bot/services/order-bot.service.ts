@@ -9,7 +9,6 @@ import { AuthStatusEnum } from '../../auth/enums/status.enum';
 import { TelegramStatusEnum } from '../../auth/guard/telegram-status.enum';
 import { OrderPaymentMethodEnum } from '../../order/enums/order-payment-status.enum';
 import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
-import { OrderTypeEnum } from '../../order/enums/order-type.enum';
 
 @Injectable()
 export class OrderBotService {
@@ -51,17 +50,6 @@ export class OrderBotService {
     }
   }
 
-  private formatOrderType(order_type: OrderTypeEnum): string {
-    switch (order_type) {
-      case OrderTypeEnum.DELIVERY:
-        return 'Delivery';
-      case OrderTypeEnum.PICKUP:
-        return 'Pickup';
-      default:
-        return order_type;
-    }
-  }
-
   private buildMapsLinks({ lat, lng }: { lat: number; lng: number }): {
     google: string;
     yandex: string;
@@ -82,8 +70,6 @@ export class OrderBotService {
     const totalPrice = Number(order.total_price || 0).toFixed(2);
     const itemsPrice = Number(order.items_price || 0).toFixed(2);
     const deliveryFee = Number(order.delivery_fee || 0).toFixed(2);
-    const usedCoins = Number(order.used_coins || 0).toFixed(2);
-    const cashAmount = Number(order.cash_amount || 0).toFixed(2);
     const lat = this.parseCoordinate(order.lat);
     const lng = this.parseCoordinate(order.lng);
     const hasLocation = lat !== null && lng !== null;
@@ -112,18 +98,13 @@ export class OrderBotService {
 
     return [
       `Yangi tayyor buyurtma: #${order.order_number || order.id}`,
-      `Order ID: ${order.id}`,
-      `Turi: ${this.formatOrderType(order.order_type)}`,
-      `Holati: ${order.status}`,
       `Mijoz tel: ${order.customer_phone || '-'}`,
       `Manzil: ${order.address || '-'}`,
       `To'lov usuli: ${this.formatPaymentMethod(order.payment_method)}`,
       `To'lov holati: ${this.formatPaymentStatus(order.payment_status)}`,
-      `Jami summa: ${totalPrice}`,
       `Mahsulotlar summasi: ${itemsPrice}`,
       `Delivery narxi: ${deliveryFee}`,
-      `Ishlatilgan coin: ${usedCoins}`,
-      `Naqt qismi: ${cashAmount}`,
+      `Jami summa: ${totalPrice}`,
       mapsSection,
       itemsLines.length ? `Tarkib:\n${itemsLines.join('\n')}` : 'Tarkib: -',
     ].join('\n');
