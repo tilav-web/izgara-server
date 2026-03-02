@@ -16,6 +16,9 @@ export class Auth {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ type: 'bigint', nullable: true, unique: true, default: null })
+  telegram_id: string | null;
+
   @Column({ type: 'varchar', length: 12, unique: true, nullable: false })
   phone: string;
 

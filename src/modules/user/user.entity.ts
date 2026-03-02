@@ -7,10 +7,10 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { Auth } from '../auth/auth.entity';
 import { AuthStatusEnum } from '../auth/enums/status.enum';
 import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 import { Order } from '../order/schemas/order.entity';
+import { Auth } from '../auth/auth.entity';
 
 @Entity('users')
 export class User {
@@ -23,13 +23,13 @@ export class User {
   @Column({ type: 'varchar', length: 12 })
   phone: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true, default: '-' })
   first_name: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true, default: '-' })
   last_name: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true, default: null })
   image: string;
 
   @Column({

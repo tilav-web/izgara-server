@@ -18,6 +18,7 @@ import { OrderModule } from './modules/order/order.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PaymentModule } from './modules/payment/payment.module';
 import { APP_GUARD } from '@nestjs/core';
+import { BotModule } from './modules/bot/bot.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { APP_GUARD } from '@nestjs/core';
         };
       },
     }),
+    BotModule,
     RedisModule,
     SeedModule,
     AliPosModule,
