@@ -39,10 +39,10 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
 
       this.webhookCallback = webhookCallback(this.bot, 'express');
 
-      const webhookUrl = this.configService.get<string>('WEBHOOK_URL');
+      const webhookUrl = this.configService.get<string>('BOT_WEBHOOK_URL');
       if (!webhookUrl) {
         throw new Error(
-          'WEBHOOK_URL is not defined in your environment variables!',
+          'BOT_WEBHOOK_URL is not defined in your environment variables!',
         );
       }
 
