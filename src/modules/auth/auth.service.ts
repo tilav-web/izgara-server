@@ -340,6 +340,11 @@ export class AuthService {
       await this.repository.delete({ id: userAuth.id });
       user.status = AuthStatusEnum.DELETED;
       await this.userRepository.save(user);
+      await this.authRedisService.deleteAuthCache({
+        id: userAuth.id,
+        phone: userAuth.phone,
+      });
+      await this.userRedisService.deleteUserDetails(userAuth.id);
       return user;
     }
 
@@ -354,6 +359,11 @@ export class AuthService {
 
     await this.userRepository.save(user);
     await this.repository.save(userAuth);
+    await this.authRedisService.deleteAuthCache({
+      id: userAuth.id,
+      phone: userAuth.phone,
+    });
+    await this.userRedisService.deleteUserDetails(userAuth.id);
     return user;
   }
 }
