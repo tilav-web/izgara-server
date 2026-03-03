@@ -30,10 +30,24 @@ export class DeliveryAssignmentsService {
     private readonly deliveryAssignmentRepository: Repository<DeliveryAssignment>,
     @InjectRepository(Auth)
     private readonly authRepository: Repository<Auth>,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
     private readonly dataSource: DataSource,
     private readonly userService: UserService,
     private readonly orderGateway: OrderGateway,
   ) {}
+
+  private async emitOrderWithUser(order_id: string, user_id: number) {
+    const orderWithUser = await this.orderRepository.findOne({
+      where: { id: order_id },
+      relations: { user: true },
+    });
+
+    await this.orderGateway.handleOrder({
+      user_id,
+      order: orderWithUser ?? ({ id: order_id, user_id } as Order),
+    });
+  }
 
   private async findDeliveryAuthByTelegram(telegram_id: string) {
     const auth = await this.authRepository.findOne({
@@ -150,10 +164,7 @@ export class DeliveryAssignmentsService {
 
     await Promise.all([
       this.userService.invalidateUserCacheByUserId(result.order.user_id),
-      this.orderGateway.handleOrder({
-        user_id: result.order.user_id,
-        order: result.order,
-      }),
+      this.emitOrderWithUser(result.order.id, result.order.user_id),
     ]);
 
     return result;
@@ -209,10 +220,7 @@ export class DeliveryAssignmentsService {
 
     await Promise.all([
       this.userService.invalidateUserCacheByUserId(order.user_id),
-      this.orderGateway.handleOrder({
-        user_id: order.user_id,
-        order,
-      }),
+      this.emitOrderWithUser(order.id, order.user_id),
     ]);
 
     return { order, assignment };
@@ -282,10 +290,7 @@ export class DeliveryAssignmentsService {
 
     await Promise.all([
       this.userService.invalidateUserCacheByUserId(order.user_id),
-      this.orderGateway.handleOrder({
-        user_id: order.user_id,
-        order,
-      }),
+      this.emitOrderWithUser(order.id, order.user_id),
     ]);
 
     return { order, assignment };
