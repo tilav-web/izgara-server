@@ -95,6 +95,7 @@ export class ClickService {
 
   async prepare(dto: ClickWebhookDto): Promise<ClickWebhookResponse> {
     try {
+      this.logger.debug(`CLICK prepare incoming: ${JSON.stringify(dto)}`);
       const {
         click_trans_id,
         merchant_trans_id,
@@ -203,6 +204,7 @@ export class ClickService {
 
   async complete(dto: ClickWebhookDto): Promise<ClickWebhookResponse> {
     try {
+      this.logger.debug(`CLICK complete incoming: ${JSON.stringify(dto)}`);
       const {
         click_trans_id,
         merchant_trans_id,

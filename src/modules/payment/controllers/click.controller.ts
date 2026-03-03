@@ -14,7 +14,6 @@ import type { Request } from 'express';
 
 @Controller('click')
 export class ClickController {
-  private static readonly DEFAULT_CLICK_ALLOWED_IPS = ['91.204.239.42'];
   private readonly logger = new Logger(ClickController.name);
 
   constructor(private readonly clickService: ClickService) {}
@@ -51,8 +50,15 @@ export class ClickController {
 
   private isAllowedIp(req?: Request): boolean {
     const ip = this.resolveClientIp(req);
+    const allowedIps = this.getAllowedIps();
+
+    // If whitelist is not configured, allow all IPs.
+    if (allowedIps === null) {
+      return true;
+    }
+
     if (!ip) return false;
-    return this.getAllowedIps().has(ip);
+    return allowedIps.has(ip);
   }
 
   private blockByIp(req?: Request) {
@@ -88,16 +94,20 @@ export class ClickController {
     return ip;
   }
 
-  private getAllowedIps(): Set<string> {
+  private getAllowedIps(): Set<string> | null {
     const envIps = process.env.CLICK_ALLOWED_IPS;
-    if (!envIps) {
-      return new Set(ClickController.DEFAULT_CLICK_ALLOWED_IPS);
+    if (!envIps || envIps.trim() === '') {
+      return null;
     }
 
     const parsed = envIps
       .split(',')
       .map((ip) => this.normalizeIp(ip.trim()))
       .filter(Boolean);
+
+    if (parsed.length === 0) {
+      return null;
+    }
 
     return new Set(parsed);
   }
