@@ -11,6 +11,7 @@ import { AuthStatusEnum } from '../auth/enums/status.enum';
 import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 import { Order } from '../order/schemas/order.entity';
 import { Auth } from '../auth/auth.entity';
+import { DeliveryAssignment } from '../deliveryAssignments/delivery_assignments.entity';
 
 @Entity('users')
 export class User {
@@ -19,6 +20,9 @@ export class User {
 
   @OneToMany(() => Order, (order) => order.user)
   orders: Order[];
+
+  @OneToMany(() => DeliveryAssignment, (assignment) => assignment.delivery)
+  delivery_assignments: DeliveryAssignment[];
 
   @Column({ type: 'varchar', length: 12 })
   phone: string;

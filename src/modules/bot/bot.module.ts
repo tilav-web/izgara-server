@@ -9,9 +9,14 @@ import { StartCommand } from './commands/start.command';
 import { ContactEvent } from './events/contact.event';
 import { OrderBotService } from './services/order-bot.service';
 import { Order } from '../order/schemas/order.entity';
+import { DeliveryAssignmentsModule } from '../deliveryAssignments/delivery-assignments.module';
 
 @Module({
-  imports: [ConfigModule, TypeOrmModule.forFeature([User, Auth, Order])],
+  imports: [
+    ConfigModule,
+    TypeOrmModule.forFeature([User, Auth, Order]),
+    DeliveryAssignmentsModule,
+  ],
   controllers: [BotController],
   providers: [BotService, StartCommand, ContactEvent, OrderBotService],
   exports: [BotService, OrderBotService],

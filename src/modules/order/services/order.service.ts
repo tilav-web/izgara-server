@@ -36,6 +36,7 @@ import { OrderGateway } from '../../socket/gateways/order/order.gateway';
 import { OrderNotificationStatusEnum } from '../../socket/gateways/order/constants';
 import { OrderNotificationRedisService } from '../../redis/order-notification-redis.service';
 import { OrderBotService } from '../../bot/services/order-bot.service';
+import { DeliveryAssignmentsService } from '../../deliveryAssignments/delivery_assignments.service';
 
 type CreateOrderContext = {
   dto: CreateOrderDto;
@@ -78,6 +79,7 @@ export class OrderService {
     private readonly orderGateway: OrderGateway,
     private readonly orderNotificationRedisService: OrderNotificationRedisService,
     private readonly orderBotService: OrderBotService,
+    private readonly deliveryAssignmentsService: DeliveryAssignmentsService,
   ) {}
 
   async getAdminNotifications({
@@ -709,6 +711,10 @@ export class OrderService {
       return manager.save(order);
     });
 
+    if (result.status === OrderStatusEnum.CANCELLED) {
+      await this.deliveryAssignmentsService.cancelActiveByOrderId(result.id);
+    }
+
     await this.userService.invalidateUserCacheByUserId(result.user_id);
     await this.orderGateway.handleOrder({
       order: result,
@@ -801,6 +807,7 @@ export class OrderService {
     });
 
     await Promise.all([
+      this.deliveryAssignmentsService.cancelActiveByOrderId(result.id),
       this.userService.invalidateUserCacheByUserId(result.user_id),
       this.orderGateway.emitOrderEvent({
         order: { ...result, user: order.user } as Order,

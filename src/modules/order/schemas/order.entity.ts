@@ -16,6 +16,7 @@ import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
 import { PaymentTransaction } from '../../payment/payment-transaction.entity';
 import { OrderTypeEnum } from '../enums/order-type.enum';
 import { Location } from '../../location/location.entity';
+import { DeliveryAssignment } from '../../deliveryAssignments/delivery_assignments.entity';
 
 @Entity('orders')
 export class Order {
@@ -107,4 +108,7 @@ export class Order {
 
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
   items: OrderItem[];
+
+  @OneToMany(() => DeliveryAssignment, (assignment) => assignment.order)
+  assignments: DeliveryAssignment[];
 }

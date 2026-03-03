@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { BotService } from '../bot.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Auth } from '../../auth/auth.entity';
@@ -9,16 +9,122 @@ import { AuthStatusEnum } from '../../auth/enums/status.enum';
 import { TelegramStatusEnum } from '../../auth/guard/telegram-status.enum';
 import { OrderPaymentMethodEnum } from '../../order/enums/order-payment-status.enum';
 import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
+import { DeliveryAssignmentsService } from '../../deliveryAssignments/delivery_assignments.service';
 
 @Injectable()
-export class OrderBotService {
+export class OrderBotService implements OnModuleInit {
+  private callbacksRegistered = false;
+
   constructor(
     private readonly botService: BotService,
+    private readonly deliveryAssignmentsService: DeliveryAssignmentsService,
     @InjectRepository(Auth)
     private readonly authRepository: Repository<Auth>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
   ) {}
+
+  onModuleInit() {
+    if (this.callbacksRegistered) return;
+
+    const bot = this.botService.getBot();
+    bot.callbackQuery(
+      /^delivery:(accept|pickup|deliver):([a-zA-Z0-9-]+)$/,
+      async (ctx) => {
+        const telegram_id = ctx.from?.id ? String(ctx.from.id) : '';
+        const action = ctx.match[1];
+        const order_id = ctx.match[2];
+
+        if (!telegram_id || !order_id) {
+          await ctx.answerCallbackQuery({
+            text: "Ma'lumotlar topilmadi.",
+            show_alert: true,
+          });
+          return;
+        }
+
+        try {
+          if (action === 'accept') {
+            const result =
+              await this.deliveryAssignmentsService.acceptReadyOrderByTelegram({
+                telegram_id,
+                order_id,
+              });
+
+            await ctx.editMessageReplyMarkup({
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: '🚚 Olib ketdim',
+                      callback_data: `delivery:pickup:${order_id}`,
+                    },
+                    {
+                      text: '📦 Yetkazildi',
+                      callback_data: `delivery:deliver:${order_id}`,
+                    },
+                  ],
+                ],
+              },
+            });
+
+            await ctx.answerCallbackQuery({
+              text: result.already_assigned
+                ? 'Buyurtma avvaldan sizga biriktirilgan.'
+                : 'Buyurtma sizga biriktirildi.',
+            });
+            return;
+          }
+
+          if (action === 'pickup') {
+            await this.deliveryAssignmentsService.markPickedUpByTelegram({
+              telegram_id,
+              order_id,
+            });
+
+            await ctx.editMessageReplyMarkup({
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: '📦 Yetkazildi',
+                      callback_data: `delivery:deliver:${order_id}`,
+                    },
+                  ],
+                ],
+              },
+            });
+            await ctx.answerCallbackQuery({
+              text: "Buyurtma 'yo'lda' holatiga o'tdi.",
+            });
+            return;
+          }
+
+          if (action === 'deliver') {
+            await this.deliveryAssignmentsService.markDeliveredByTelegram({
+              telegram_id,
+              order_id,
+            });
+            await ctx.editMessageReplyMarkup({ reply_markup: undefined });
+            await ctx.answerCallbackQuery({
+              text: "Buyurtma 'yetkazildi' holatiga o'tdi.",
+            });
+            return;
+          }
+        } catch (error) {
+          await ctx.answerCallbackQuery({
+            text:
+              error instanceof Error
+                ? error.message.slice(0, 180)
+                : "Amal bajarilmadi.",
+            show_alert: true,
+          });
+        }
+      },
+    );
+
+    this.callbacksRegistered = true;
+  }
 
   private formatPaymentMethod(payment_method: OrderPaymentMethodEnum): string {
     switch (payment_method) {
@@ -106,7 +212,7 @@ export class OrderBotService {
     });
 
     return [
-      `🛵 <b>Yangi tayyor buyurtma:</b> #${this.escapeHtml(order.order_number || '-')}`,
+      `🛵 <b>Yangi tayyor buyurtma:</b> #${this.escapeHtml(order.order_number || order.id)}`,
       `📞 <b>Mijoz tel:</b> ${this.escapeHtml(order.customer_phone || '-')}`,
       `🏠 <b>Manzil:</b> ${this.escapeHtml(order.address || '-')}`,
       `💳 <b>To'lov usuli:</b> <i>${this.escapeHtml(this.formatPaymentMethod(order.payment_method))}</i>`,
@@ -167,6 +273,16 @@ export class OrderBotService {
         }
         await bot.api.sendMessage(delivery.telegram_id, text, {
           parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: '✅ Buyurtmani qabul qilish',
+                  callback_data: `delivery:accept:${freshOrder.id}`,
+                },
+              ],
+            ],
+          },
           link_preview_options: {
             is_disabled: true,
           },

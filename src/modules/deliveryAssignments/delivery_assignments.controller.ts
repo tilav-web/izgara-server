@@ -1,51 +1,46 @@
-import { Controller } from '@nestjs/common';
-import {
-  Column,
-  CreateDateColumn,
-  JoinColumn,
-  ManyToOne,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
-import { Order } from '../order/schemas/order.entity';
-import { User } from '../user/user.entity';
-import { DeliveryAssignmentStatusEnum } from './enum/delivery-assignment-status.enum';
+import { Controller, Param, Patch, Req, UseGuards } from '@nestjs/common';
+import { DeliveryAssignmentsService } from './delivery_assignments.service';
+import { AuthGuard } from '@nestjs/passport';
+import { AuthRoleGuard } from '../auth/guard/role.guard';
+import { AuthStatusGuard } from '../auth/guard/status.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import type { Request } from 'express';
 
 @Controller('delivery-assignments')
+@UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
+@Roles(AuthRoleEnum.DELIVERY)
+@ApiBearerAuth('access_token')
 export class DeliveryAssignmentsController {
-  @PrimaryGeneratedColumn()
-  id: string;
+  constructor(
+    private readonly deliveryAssignmentsService: DeliveryAssignmentsService,
+  ) {}
 
-  @ManyToOne(() => Order, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'order_id' })
-  order: Order;
+  @Patch('/accept/:order_id')
+  async acceptOrder(@Param('order_id') order_id: string, @Req() req: Request) {
+    const auth = req.user as { id: number };
+    return this.deliveryAssignmentsService.acceptReadyOrderByAuthId({
+      order_id,
+      auth_id: auth.id,
+    });
+  }
 
-  @Column({ name: 'order_id' })
-  order_id: string;
+  @Patch('/pickup/:order_id')
+  async pickUpOrder(@Param('order_id') order_id: string, @Req() req: Request) {
+    const auth = req.user as { id: number };
+    return this.deliveryAssignmentsService.markPickedUpByAuthId({
+      order_id,
+      auth_id: auth.id,
+    });
+  }
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'delivery_id' })
-  delivery: User;
-
-  @Column({ name: 'delivery_id' })
-  delivery_id: number;
-
-  @Column({
-    type: 'enum',
-    enum: DeliveryAssignmentStatusEnum,
-    default: DeliveryAssignmentStatusEnum.ASSIGNED,
-  })
-  status: DeliveryAssignmentStatusEnum;
-
-  @Column({ type: 'timestamp', nullable: true })
-  accepted_at: Date;
-
-  @Column({ type: 'timestamp', nullable: true })
-  delivered_at: Date;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
+  @Patch('/deliver/:order_id')
+  async deliverOrder(@Param('order_id') order_id: string, @Req() req: Request) {
+    const auth = req.user as { id: number };
+    return this.deliveryAssignmentsService.markDeliveredByAuthId({
+      order_id,
+      auth_id: auth.id,
+    });
+  }
 }
