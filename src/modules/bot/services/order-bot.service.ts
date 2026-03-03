@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { BotService } from '../bot.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Auth } from '../../auth/auth.entity';
@@ -14,6 +14,7 @@ import { DeliveryAssignmentsService } from '../../deliveryAssignments/delivery_a
 @Injectable()
 export class OrderBotService implements OnModuleInit {
   private callbacksRegistered = false;
+  private readonly logger = new Logger(OrderBotService.name);
 
   constructor(
     private readonly botService: BotService,
@@ -116,7 +117,7 @@ export class OrderBotService implements OnModuleInit {
             text:
               error instanceof Error
                 ? error.message.slice(0, 180)
-                : "Amal bajarilmadi.",
+                : 'Amal bajarilmadi.',
             show_alert: true,
           });
         }
@@ -181,6 +182,81 @@ export class OrderBotService implements OnModuleInit {
       .replaceAll("'", '&#39;');
   }
 
+  private sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private formatUnknownError(error: unknown): string {
+    if (error instanceof Error) {
+      return error.stack ?? error.message;
+    }
+    if (typeof error === 'string') {
+      return error;
+    }
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'Unknown non-serializable error';
+    }
+  }
+
+  private isRetriableTelegramError(error: unknown): boolean {
+    const code =
+      typeof error === 'object' && error !== null
+        ? String((error as { code?: string }).code ?? '')
+        : '';
+    const nestedCode =
+      typeof error === 'object' && error !== null
+        ? String(
+            (
+              error as {
+                error?: {
+                  code?: string;
+                };
+              }
+            ).error?.code ?? '',
+          )
+        : '';
+    const message = this.formatUnknownError(error);
+
+    return (
+      ['ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN', 'ENOTFOUND'].includes(code) ||
+      ['ETIMEDOUT', 'ECONNRESET', 'EAI_AGAIN', 'ENOTFOUND'].includes(
+        nestedCode,
+      ) ||
+      message.includes('Network request')
+    );
+  }
+
+  private async callTelegramWithRetry({
+    fn,
+    label,
+    authId,
+  }: {
+    fn: () => Promise<unknown>;
+    label: string;
+    authId: number;
+  }) {
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        const isLastAttempt = attempt === maxAttempts;
+        const retriable = this.isRetriableTelegramError(error);
+        if (!retriable || isLastAttempt) {
+          throw error;
+        }
+
+        const delayMs = attempt * 1000;
+        this.logger.warn(
+          `${label} failed for auth_id=${authId}, retrying (${attempt}/${maxAttempts}) in ${delayMs}ms`,
+        );
+        await this.sleep(delayMs);
+      }
+    }
+  }
+
   private buildOrderMessage(order: Order): string {
     const totalPrice = Number(order.total_price || 0).toFixed(2);
     const itemsPrice = Number(order.items_price || 0).toFixed(2);
@@ -195,7 +271,7 @@ export class OrderBotService implements OnModuleInit {
         lat,
         lng,
       });
-      mapsSection = `📍 <b>Joylashuv:</b>\n🗺️ Google map: ${maps.google}\n🧭 Yandex map: ${maps.yandex}`;
+      mapsSection = `📍 <b>Joylashuv:</b>\n🗺️ Google map: ${this.escapeHtml(maps.google)}\n🧭 Yandex map: ${this.escapeHtml(maps.yandex)}`;
     }
 
     const itemsLines = (order.items || []).map((item, idx) => {
@@ -269,25 +345,46 @@ export class OrderBotService implements OnModuleInit {
 
       try {
         if (hasLocation) {
-          await bot.api.sendLocation(delivery.telegram_id, lat, lng);
+          try {
+            await this.callTelegramWithRetry({
+              fn: () => bot.api.sendLocation(delivery.telegram_id!, lat, lng),
+              label: 'sendLocation',
+              authId: delivery.id,
+            });
+          } catch (error) {
+            // Location yuborish xatosi bo'lsa ham text xabarni yuborishga harakat qilamiz.
+            this.logger.warn(
+              `sendLocation failed for auth_id=${delivery.id}, fallback to text message`,
+            );
+            this.logger.debug(this.formatUnknownError(error));
+          }
         }
-        await bot.api.sendMessage(delivery.telegram_id, text, {
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: '✅ Buyurtmani qabul qilish',
-                  callback_data: `delivery:accept:${freshOrder.id}`,
-                },
-              ],
-            ],
-          },
-          link_preview_options: {
-            is_disabled: true,
-          },
+        await this.callTelegramWithRetry({
+          fn: () =>
+            bot.api.sendMessage(delivery.telegram_id!, text, {
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: '✅ Buyurtmani qabul qilish',
+                      callback_data: `delivery:accept:${freshOrder.id}`,
+                    },
+                  ],
+                ],
+              },
+              link_preview_options: {
+                is_disabled: true,
+              },
+            }),
+          label: 'sendMessage',
+          authId: delivery.id,
         });
       } catch (error) {
+        this.logger.error(
+          `Failed to send order notification to delivery auth_id=${delivery.id}`,
+          this.formatUnknownError(error),
+        );
         console.error(
           `Failed to send order notification to delivery auth_id=${delivery.id}`,
           error,
