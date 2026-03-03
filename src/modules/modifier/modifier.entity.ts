@@ -11,25 +11,25 @@ import { ModifierGroup } from '../modifierGroup/modifier-group.entity';
 @Entity('modifiers')
 export class Modifier {
   @PrimaryColumn()
-  id: string; // Modifikatorning AliPos UUID identifikatori [cite: 78]
+  id: string; // Modifikatorning AliPos UUID identifikatori
 
   @Column()
-  name: string; // Qo'shimcha nomi (masalan: "Ketchup") [cite: 83]
+  name: string; // Qo'shimcha nomi (masalan: "Ketchup")
 
   @Column({ type: 'text', nullable: true, default: null })
   image: string;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
-  price: number; // Qo'shimchaning alohida narxi [cite: 86]
+  price: number; // Qo'shimchaning alohida narxi
 
   @Column({ default: 1 })
-  max_quantity: number; // Mijoz nechta tanlay olishi mumkinligi [cite: 90]
+  max_quantity: number; // Mijoz nechta tanlay olishi mumkinligi
 
   @Column({ default: true })
   is_active: boolean;
 
   @Column({ default: 0 })
-  sort_order: number; // Guruh ichidagi tartibi [cite: 92]
+  sort_order: number; // Guruh ichidagi tartibi
 
   @ManyToOne(() => ModifierGroup, (group) => group.modifiers)
   group: ModifierGroup; // Modifikator tegishli bo'lgan guruh

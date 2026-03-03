@@ -49,6 +49,22 @@ type CreateOrderContext = {
 
 @Injectable()
 export class OrderService {
+  private readonly cancelRestrictionMessageByStatus: Record<
+    OrderStatusEnum,
+    string
+  > = {
+    [OrderStatusEnum.NEW]: 'Buyurtmani bekor qilish mumkin.',
+    [OrderStatusEnum.IN_PROGRESS]:
+      "Buyurtmangiz tayyorlash jarayonida. Bu bosqichda uni bekor qilib bo'lmaydi.",
+    [OrderStatusEnum.READY]:
+      "Buyurtmangiz tayyor bo'lgan va yetkazib berish jarayoniga topshirilgan. Bu bosqichda uni bekor qilib bo'lmaydi.",
+    [OrderStatusEnum.ON_WAY]:
+      "Buyurtmangiz yo'lda. Bu bosqichda uni bekor qilib bo'lmaydi.",
+    [OrderStatusEnum.DELIVERED]:
+      "Buyurtmangiz allaqachon yetkazib berilgan. Uni bekor qilib bo'lmaydi.",
+    [OrderStatusEnum.CANCELLED]: 'Buyurtmangiz allaqachon bekor qilingan.',
+  };
+
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
@@ -765,14 +781,14 @@ export class OrderService {
       );
     }
 
-    if (order.status === OrderStatusEnum.CANCELLED) {
-      throw new BadRequestException('Buyurtma allaqachon bekor qilingan!');
+    if (order.status !== OrderStatusEnum.NEW) {
+      throw new BadRequestException(
+        this.cancelRestrictionMessageByStatus[order.status] ||
+          "Buyurtmaning joriy holatida uni bekor qilib bo'lmaydi.",
+      );
     }
 
     const result = await this.dataSource.transaction(async (manager) => {
-      if (order.status !== OrderStatusEnum.NEW) {
-        await this.deleteToAlipos(order.id);
-      }
       await this.applyCoinEffectsByOrderStatusChange(
         manager,
         order,
@@ -784,19 +800,21 @@ export class OrderService {
       return updatedOrder;
     });
 
-    await this.userService.invalidateUserCacheByUserId(result.user_id);
-    await this.orderGateway.emitOrderEvent({
-      order: { ...result, user: order.user } as Order,
-      action: 'updated',
-      roles: [AuthRoleEnum.SUPERADMIN],
-    });
-    await this.orderGateway.emitNotification({
-      title: 'Buyurtma bekor qilindi',
-      message: `Buyurtma foydalanuvchi tomonidan bekor qilindi`,
-      order_id: result.id,
-      status: OrderNotificationStatusEnum.ERROR,
-      roles: [AuthRoleEnum.SUPERADMIN],
-    });
+    await Promise.all([
+      this.userService.invalidateUserCacheByUserId(result.user_id),
+      this.orderGateway.emitOrderEvent({
+        order: { ...result, user: order.user } as Order,
+        action: 'updated',
+        roles: [AuthRoleEnum.SUPERADMIN],
+      }),
+      this.orderGateway.emitNotification({
+        title: 'Buyurtma bekor qilindi',
+        message: `Buyurtma foydalanuvchi tomonidan bekor qilindi`,
+        order_id: result.id,
+        status: OrderNotificationStatusEnum.ERROR,
+        roles: [AuthRoleEnum.SUPERADMIN],
+      }),
+    ]);
     return { ...result, user: order.user } as Order;
   }
 }

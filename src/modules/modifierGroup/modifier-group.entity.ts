@@ -14,13 +14,13 @@ import { Modifier } from '../modifier/modifier.entity';
 @Entity('modifier_groups')
 export class ModifierGroup {
   @PrimaryColumn()
-  id: string; // Guruhning AliPos UUID identifikatori [cite: 72]
+  id: string; // Guruhning AliPos UUID identifikatori
 
   @Column()
-  name: string; // Guruh nomi (masalan: "Pishloqlar") [cite: 72]
+  name: string; // Guruh nomi (masalan: "Pishloqlar")
 
   @Column()
-  sort_order: number; // Guruhning ko'rinish tartibi [cite: 72]
+  sort_order: number; // Guruhning ko'rinish tartibi
 
   @Column({ type: 'int', default: 0 })
   min_selected_amount: number;

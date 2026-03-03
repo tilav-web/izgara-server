@@ -66,6 +66,15 @@ export class OrderBotService {
     return Number.isFinite(num) ? num : null;
   }
 
+  private escapeHtml(value: string): string {
+    return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
   private buildOrderMessage(order: Order): string {
     const totalPrice = Number(order.total_price || 0).toFixed(2);
     const itemsPrice = Number(order.items_price || 0).toFixed(2);
@@ -74,13 +83,13 @@ export class OrderBotService {
     const lng = this.parseCoordinate(order.lng);
     const hasLocation = lat !== null && lng !== null;
 
-    let mapsSection = 'Joylashuv: mavjud emas';
+    let mapsSection = '📍 <b>Joylashuv:</b> <i>mavjud emas</i>';
     if (hasLocation) {
       const maps = this.buildMapsLinks({
         lat,
         lng,
       });
-      mapsSection = `Google map: ${maps.google}\nYandex map: ${maps.yandex}`;
+      mapsSection = `📍 <b>Joylashuv:</b>\n🗺️ Google map: ${maps.google}\n🧭 Yandex map: ${maps.yandex}`;
     }
 
     const itemsLines = (order.items || []).map((item, idx) => {
@@ -88,25 +97,27 @@ export class OrderBotService {
       const modifiers = (item.order_item_modifiers || [])
         .map(
           (m) =>
-            `  - ${m.modifier_name} x${m.quantity} (${Number(m.price || 0).toFixed(2)})`,
+            `   ◦ <i>${this.escapeHtml(m.modifier_name || '-')}</i> x${m.quantity} (${Number(m.price || 0).toFixed(2)})`,
         )
         .join('\n');
-      return `${idx + 1}. ${item.product_name} x${item.quantity} (${price})${
+      return `${idx + 1}. <b>${this.escapeHtml(item.product_name || '-')}</b> x${item.quantity} (${price})${
         modifiers ? `\n${modifiers}` : ''
       }`;
     });
 
     return [
-      `Yangi tayyor buyurtma: #${order.order_number || order.id}`,
-      `Mijoz tel: ${order.customer_phone || '-'}`,
-      `Manzil: ${order.address || '-'}`,
-      `To'lov usuli: ${this.formatPaymentMethod(order.payment_method)}`,
-      `To'lov holati: ${this.formatPaymentStatus(order.payment_status)}`,
-      `Mahsulotlar summasi: ${itemsPrice}`,
-      `Delivery narxi: ${deliveryFee}`,
-      `Jami summa: ${totalPrice}`,
+      `🛵 <b>Yangi tayyor buyurtma:</b> #${this.escapeHtml(order.order_number || '-')}`,
+      `📞 <b>Mijoz tel:</b> ${this.escapeHtml(order.customer_phone || '-')}`,
+      `🏠 <b>Manzil:</b> ${this.escapeHtml(order.address || '-')}`,
+      `💳 <b>To'lov usuli:</b> <i>${this.escapeHtml(this.formatPaymentMethod(order.payment_method))}</i>`,
+      `📌 <b>To'lov holati:</b> <i>${this.escapeHtml(this.formatPaymentStatus(order.payment_status))}</i>`,
+      `🧾 <b>Mahsulotlar summasi:</b> ${itemsPrice}`,
+      `🚚 <b>Delivery narxi:</b> ${deliveryFee}`,
+      `💰 <b>Jami summa:</b> ${totalPrice}`,
       mapsSection,
-      itemsLines.length ? `Tarkib:\n${itemsLines.join('\n')}` : 'Tarkib: -',
+      itemsLines.length
+        ? `🍽️ <b>Tarkib:</b>\n${itemsLines.join('\n')}`
+        : '🍽️ <b>Tarkib:</b> -',
     ].join('\n');
   }
 
@@ -154,7 +165,12 @@ export class OrderBotService {
         if (hasLocation) {
           await bot.api.sendLocation(delivery.telegram_id, lat, lng);
         }
-        await bot.api.sendMessage(delivery.telegram_id, text);
+        await bot.api.sendMessage(delivery.telegram_id, text, {
+          parse_mode: 'HTML',
+          link_preview_options: {
+            is_disabled: true,
+          },
+        });
       } catch (error) {
         console.error(
           `Failed to send order notification to delivery auth_id=${delivery.id}`,
