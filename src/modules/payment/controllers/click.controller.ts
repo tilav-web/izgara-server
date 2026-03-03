@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Header,
   HttpCode,
   HttpStatus,
   Logger,
@@ -18,23 +19,52 @@ export class ClickController {
 
   constructor(private readonly clickService: ClickService) {}
 
+  @Post('prepare')
+  @HttpCode(HttpStatus.OK)
+  @Header('Content-Type', 'application/json')
+  async prepare(@Body() body: ClickWebhookDto, @Req() req: Request) {
+    if (!this.isAllowedIp(req)) {
+      return this.blockByIp(req);
+    }
+    return this.clickService.prepare(body);
+  }
+
+  @Post('complete')
+  @HttpCode(HttpStatus.OK)
+  @Header('Content-Type', 'application/json')
+  async complete(@Body() body: ClickWebhookDto, @Req() req: Request) {
+    if (!this.isAllowedIp(req)) {
+      return this.blockByIp(req);
+    }
+    return this.clickService.complete(body);
+  }
+
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
   async handleWebhook(@Body() body: ClickWebhookDto, @Req() req: Request) {
-    const ip = this.resolveClientIp(req);
-
-    if (!ip || !this.getAllowedIps().has(ip)) {
-      this.logger.warn(
-        `Blocked CLICK webhook from unauthorized ip=${ip ?? 'unknown'}`,
-      );
-
-      return this.clickService.getErrorResponse({
-        code: -8,
-        note: 'IP_NOT_ALLOWED',
-      });
+    if (!this.isAllowedIp(req)) {
+      return this.blockByIp(req);
     }
 
     return this.clickService.handleWebhook(body);
+  }
+
+  private isAllowedIp(req?: Request): boolean {
+    const ip = this.resolveClientIp(req);
+    if (!ip) return false;
+    return this.getAllowedIps().has(ip);
+  }
+
+  private blockByIp(req?: Request) {
+    const ip = this.resolveClientIp(req);
+    this.logger.warn(
+      `Blocked CLICK webhook from unauthorized ip=${ip ?? 'unknown'}`,
+    );
+
+    return this.clickService.getErrorResponse({
+      code: -8,
+      note: 'IP_NOT_ALLOWED',
+    });
   }
 
   private resolveClientIp(req?: Request): string | null {

@@ -5,6 +5,8 @@
 /uploads
 /src/modules/requests
 
+/click-uz-integration-nodejs
+
 
 tsconfig.build.tsbuildinfo
 tsconfig.tsbuildinfo

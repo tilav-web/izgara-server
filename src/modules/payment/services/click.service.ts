@@ -76,6 +76,24 @@ export class ClickService {
   }
 
   async handleWebhook(dto: ClickWebhookDto): Promise<ClickWebhookResponse> {
+    const { action } = dto;
+    if (!this.isClickAction(action)) {
+      return this.error(
+        ClickErrorCodeEnum.ACTION_NOT_FOUND,
+        'ACTION_NOT_FOUND',
+      );
+    }
+
+    if (action === ClickActionEnum.PREPARE) {
+      return this.prepare(dto);
+    }
+    if (action === ClickActionEnum.COMPLETE) {
+      return this.complete(dto);
+    }
+    return this.error(ClickErrorCodeEnum.ACTION_NOT_FOUND, 'ACTION_NOT_FOUND');
+  }
+
+  async prepare(dto: ClickWebhookDto): Promise<ClickWebhookResponse> {
     try {
       const {
         click_trans_id,
@@ -83,40 +101,27 @@ export class ClickService {
         amount,
         action,
         sign_string,
-        error,
         sign_time,
         service_id,
-        merchant_prepare_id,
       } = dto;
 
-      const secretKey = process.env.CLICK_SECRET_KEY;
-      const expectedServiceId = process.env.CLICK_SERVICE_ID;
-
-      if (!secretKey || !expectedServiceId) {
-        this.logger.error(
-          'CLICK configuration is incomplete: CLICK_SECRET_KEY or CLICK_SERVICE_ID is missing',
-        );
+      const order = await this.orderService.findById(merchant_trans_id);
+      if (!order) {
         return this.error(
-          ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK,
-          'CONFIGURATION_ERROR',
+          ClickErrorCodeEnum.TRANSACTION_DOES_NOT_EXIST,
+          'Transaction not found',
         );
       }
 
-      if (service_id !== expectedServiceId) {
-        this.logger.warn(`CLICK invalid service_id=${service_id}`);
-        return this.error(
-          ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK,
-          'INVALID_SERVICE_ID',
-        );
-      }
-
-      if (!this.isClickAction(action)) {
-        this.logger.warn(`CLICK invalid action=${action}`);
+      if (!this.isClickAction(action) || action !== ClickActionEnum.PREPARE) {
         return this.error(
           ClickErrorCodeEnum.ACTION_NOT_FOUND,
-          'ACTION_NOT_FOUND',
+          'Action not found',
         );
       }
+
+      const configValidation = this.validateServiceConfig(service_id);
+      if (configValidation) return configValidation;
 
       if (!this.isValidSignTime(sign_time)) {
         return this.error(
@@ -125,35 +130,25 @@ export class ClickService {
         );
       }
 
-      const stringToHash =
-        action === ClickActionEnum.PREPARE
-          ? `${click_trans_id}${service_id}${secretKey}${merchant_trans_id}${amount}${action}${sign_time}`
-          : `${click_trans_id}${service_id}${secretKey}${merchant_trans_id}${merchant_prepare_id ?? ''}${amount}${action}${sign_time}`;
-
-      const mySign = crypto
-        .createHash('md5')
-        .update(stringToHash)
-        .digest('hex');
-
-      if (!this.isSignatureEqual(mySign, sign_string)) {
-        this.logger.warn(
-          `CLICK sign check failed: trans_id=${click_trans_id}, merchant_trans_id=${merchant_trans_id}`,
-        );
-        return this.error(
-          ClickErrorCodeEnum.SIGN_CHECK_FAILED,
-          'SIGN_CHECK_FAILED',
-        );
-      }
-
-      const order = await this.orderService.findById(merchant_trans_id);
-      if (!order) {
-        return this.error(
-          ClickErrorCodeEnum.USER_DOES_NOT_EXIST,
-          'ORDER_NOT_FOUND',
-        );
+      if (
+        !this.validateSign({
+          click_trans_id,
+          service_id,
+          merchant_trans_id,
+          amount,
+          action,
+          sign_time,
+          sign_string,
+        })
+      ) {
+        return this.error(ClickErrorCodeEnum.SIGN_CHECK_FAILED, 'Invalid sign');
       }
 
       const requestAmount = Number(amount);
+
+      if (order.payment_status === PaymentStatusEnum.SUCCESS) {
+        return this.error(ClickErrorCodeEnum.ALREADY_PAID, 'Already paid');
+      }
 
       if (order.payment_method !== OrderPaymentMethodEnum.PAYMENT_ONLINE) {
         return this.error(
@@ -169,26 +164,162 @@ export class ClickService {
         );
       }
 
-      if (order.payment_status === PaymentStatusEnum.SUCCESS) {
-        return this.error(ClickErrorCodeEnum.ALREADY_PAID, 'ALREADY_PAID');
-      }
-
       if (!this.isAmountEqual(Number(order.total_price), requestAmount)) {
-        return this.error(ClickErrorCodeEnum.INVALID_AMOUNT, 'INVALID_AMOUNT');
+        return this.error(
+          ClickErrorCodeEnum.INVALID_AMOUNT,
+          'Incorrect parameter amount',
+        );
       }
 
-      if (action === ClickActionEnum.PREPARE) {
-        return this.handlePrepare({
-          order,
-          click_trans_id,
-          merchant_trans_id,
+      const transactionByClickId =
+        await this.paymentTransactionRepository.findOneBy({
+          provider: PaymentProviderEnum.CLICK,
+          provider_transaction_id: click_trans_id,
         });
+
+      if (
+        transactionByClickId &&
+        transactionByClickId.status === PaymentStatusEnum.CANCELLED
+      ) {
+        return this.error(
+          ClickErrorCodeEnum.TRANSACTION_CANCELLED,
+          'Transaction canceled',
+        );
       }
+
+      return this.handlePrepare({
+        order,
+        click_trans_id,
+        merchant_trans_id,
+      });
+    } catch (error) {
+      this.logger.error('Unhandled CLICK prepare error', error as Error);
+      return this.error(
+        ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK,
+        'INTERNAL_ERROR',
+      );
+    }
+  }
+
+  async complete(dto: ClickWebhookDto): Promise<ClickWebhookResponse> {
+    try {
+      const {
+        click_trans_id,
+        merchant_trans_id,
+        merchant_prepare_id,
+        amount,
+        action,
+        sign_string,
+        sign_time,
+        service_id,
+        error,
+      } = dto;
+
+      const order = await this.orderService.findById(merchant_trans_id);
+      if (!order) {
+        return this.error(
+          ClickErrorCodeEnum.TRANSACTION_DOES_NOT_EXIST,
+          'Transaction not found',
+        );
+      }
+
+      if (!this.isClickAction(action) || action !== ClickActionEnum.COMPLETE) {
+        return this.error(
+          ClickErrorCodeEnum.ACTION_NOT_FOUND,
+          'Action not found',
+        );
+      }
+
+      const configValidation = this.validateServiceConfig(service_id);
+      if (configValidation) return configValidation;
 
       if (!merchant_prepare_id) {
         return this.error(
           ClickErrorCodeEnum.TRANSACTION_DOES_NOT_EXIST,
-          'TRANSACTION_DOES_NOT_EXIST',
+          'Transaction not found',
+        );
+      }
+
+      if (!this.isValidSignTime(sign_time)) {
+        return this.error(
+          ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK,
+          'INVALID_SIGN_TIME',
+        );
+      }
+
+      if (
+        !this.validateSign({
+          click_trans_id,
+          service_id,
+          merchant_trans_id,
+          merchant_prepare_id,
+          amount,
+          action,
+          sign_time,
+          sign_string,
+        })
+      ) {
+        return this.error(ClickErrorCodeEnum.SIGN_CHECK_FAILED, 'Invalid sign');
+      }
+
+      if (order.payment_status === PaymentStatusEnum.SUCCESS) {
+        return this.error(ClickErrorCodeEnum.ALREADY_PAID, 'Already paid');
+      }
+
+      if (order.payment_method !== OrderPaymentMethodEnum.PAYMENT_ONLINE) {
+        return this.error(
+          ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK,
+          'ORDER_PAYMENT_METHOD_INVALID',
+        );
+      }
+
+      if (order.status === OrderStatusEnum.CANCELLED) {
+        return this.error(
+          ClickErrorCodeEnum.TRANSACTION_CANCELLED,
+          'ORDER_CANCELLED',
+        );
+      }
+
+      if (!this.isAmountEqual(Number(order.total_price), Number(amount))) {
+        return this.error(
+          ClickErrorCodeEnum.INVALID_AMOUNT,
+          'Incorrect parameter amount',
+        );
+      }
+
+      const preparedTransaction =
+        await this.paymentTransactionRepository.findOneBy({
+          id: merchant_prepare_id,
+          provider: PaymentProviderEnum.CLICK,
+        });
+      if (!preparedTransaction) {
+        return this.error(
+          ClickErrorCodeEnum.TRANSACTION_DOES_NOT_EXIST,
+          'Transaction not found',
+        );
+      }
+
+      const isAlreadyPaid = await this.paymentTransactionRepository.findOneBy({
+        order_id: order.id,
+        provider: PaymentProviderEnum.CLICK,
+        status: PaymentStatusEnum.SUCCESS,
+      });
+      if (isAlreadyPaid && isAlreadyPaid.id !== preparedTransaction.id) {
+        return this.error(ClickErrorCodeEnum.ALREADY_PAID, 'Already paid');
+      }
+
+      const transactionByClickId =
+        await this.paymentTransactionRepository.findOneBy({
+          provider: PaymentProviderEnum.CLICK,
+          provider_transaction_id: click_trans_id,
+        });
+      if (
+        transactionByClickId &&
+        transactionByClickId.status === PaymentStatusEnum.CANCELLED
+      ) {
+        return this.error(
+          ClickErrorCodeEnum.TRANSACTION_CANCELLED,
+          'Transaction canceled',
         );
       }
 
@@ -200,7 +331,7 @@ export class ClickService {
         clickErrorCode: this.parseClickErrorCode(error),
       });
     } catch (error) {
-      this.logger.error('Unhandled CLICK webhook error', error as Error);
+      this.logger.error('Unhandled CLICK complete error', error as Error);
       return this.error(
         ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK,
         'INTERNAL_ERROR',
@@ -426,6 +557,60 @@ export class ClickService {
     return Number.isNaN(parsed)
       ? ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK
       : parsed;
+  }
+
+  private validateServiceConfig(
+    service_id: string,
+  ): ClickWebhookResponse | null {
+    const secretKey = process.env.CLICK_SECRET_KEY;
+    const expectedServiceId = process.env.CLICK_SERVICE_ID;
+
+    if (!secretKey || !expectedServiceId) {
+      this.logger.error(
+        'CLICK configuration is incomplete: CLICK_SECRET_KEY or CLICK_SERVICE_ID is missing',
+      );
+      return this.error(
+        ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK,
+        'CONFIGURATION_ERROR',
+      );
+    }
+
+    if (service_id !== expectedServiceId) {
+      this.logger.warn(`CLICK invalid service_id=${service_id}`);
+      return this.error(
+        ClickErrorCodeEnum.ERROR_IN_REQUEST_FROM_CLICK,
+        'INVALID_SERVICE_ID',
+      );
+    }
+
+    return null;
+  }
+
+  private validateSign({
+    click_trans_id,
+    service_id,
+    merchant_trans_id,
+    merchant_prepare_id,
+    amount,
+    action,
+    sign_time,
+    sign_string,
+  }: {
+    click_trans_id: string;
+    service_id: string;
+    merchant_trans_id: string;
+    merchant_prepare_id?: string;
+    amount: string;
+    action: string;
+    sign_time: string;
+    sign_string: string;
+  }): boolean {
+    const secretKey = process.env.CLICK_SECRET_KEY ?? '';
+    const prepareId = merchant_prepare_id ?? '';
+    const signature = `${click_trans_id}${service_id}${secretKey}${merchant_trans_id}${prepareId}${amount}${action}${sign_time}`;
+    const expected = crypto.createHash('md5').update(signature).digest('hex');
+
+    return this.isSignatureEqual(expected, sign_string);
   }
 
   private isSignatureEqual(
