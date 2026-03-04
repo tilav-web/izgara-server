@@ -13,7 +13,7 @@ import { AuthRoleGuard } from '../auth/guard/role.guard';
 import { AuthStatusGuard } from '../auth/guard/status.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { FindAllDeliveryAssignmentsDto } from './dto/find-all-delivery-assignments.dto';
 
@@ -29,10 +29,6 @@ export class DeliveryAssignmentsController {
 
   @Get('/')
   @Roles(AuthRoleEnum.SUPERADMIN)
-  @ApiOperation({
-    summary:
-      'Super admin uchun delivery assignmentlar ro‘yxati (pagination + filter)',
-  })
   async findAllForSuperAdmin(@Query() query: FindAllDeliveryAssignmentsDto) {
     return this.deliveryAssignmentsService.findAllForSuperAdmin({
       status: query.status,
