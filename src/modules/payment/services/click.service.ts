@@ -19,6 +19,7 @@ import { PaymentStatusEnum } from '../enums/payment-status.enum';
 import { PaymentTransaction } from '../payment-transaction.entity';
 import { ClickWebhookResponse } from '../types/click.types';
 import { generateClickUrl } from '../../../utils/generate-click-url';
+import { OrderGateway } from '../../socket/gateways/order/order.gateway';
 
 @Injectable()
 export class ClickService {
@@ -29,6 +30,7 @@ export class ClickService {
     private readonly paymentTransactionRepository: Repository<PaymentTransaction>,
     private readonly dataSource: DataSource,
     private readonly orderService: OrderService,
+    private readonly orderGateway: OrderGateway,
   ) {}
 
   async getPendingPaymentUrl({
@@ -522,6 +524,17 @@ export class ClickService {
         error_note: 'SUCCESS',
       };
     });
+
+    const updatedOrder = await this.dataSource.getRepository(Order).findOne({
+      where: { id: order_id },
+      relations: { user: true },
+    });
+    if (updatedOrder) {
+      await this.orderGateway.handleOrder({
+        order: updatedOrder,
+        user_id: updatedOrder.user_id,
+      });
+    }
 
     return result;
   }

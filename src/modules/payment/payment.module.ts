@@ -9,9 +9,14 @@ import { PaymentTransaction } from './payment-transaction.entity';
 import { ClickService } from './services/click.service';
 import { PaymeService } from './services/payme.service';
 import { PaymentTransactionService } from './services/payment-transaction.service';
+import { SocketModule } from '../socket/socket.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PaymentTransaction, Order]), OrderModule],
+  imports: [
+    TypeOrmModule.forFeature([PaymentTransaction, Order]),
+    OrderModule,
+    SocketModule,
+  ],
   controllers: [ClickController, PaymeController, PaymentTransactionController],
   providers: [ClickService, PaymeService, PaymentTransactionService],
   exports: [ClickService, PaymeService, PaymentTransactionService],

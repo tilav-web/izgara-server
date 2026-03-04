@@ -28,6 +28,7 @@ import {
 } from '../types/payme.types';
 import { generatePaymeUrl } from '../../../utils/generate-payme-url';
 import { OrderService } from '../../order/services/order.service';
+import { OrderGateway } from '../../socket/gateways/order/order.gateway';
 
 @Injectable()
 export class PaymeService {
@@ -38,6 +39,7 @@ export class PaymeService {
     private readonly orderRepo: Repository<Order>,
     private readonly dataSource: DataSource,
     private readonly orderService: OrderService,
+    private readonly orderGateway: OrderGateway,
   ) {}
 
   async getPendingPaymentUrl({
@@ -406,6 +408,17 @@ export class PaymeService {
           manager,
         );
       });
+
+      const updatedOrder = await this.orderRepo.findOne({
+        where: { id: transaction.order_id },
+        relations: { user: true },
+      });
+      if (updatedOrder) {
+        await this.orderGateway.handleOrder({
+          order: updatedOrder,
+          user_id: updatedOrder.user_id,
+        });
+      }
 
       return {
         result: {
