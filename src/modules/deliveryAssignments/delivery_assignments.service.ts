@@ -17,6 +17,7 @@ import { OrderTypeEnum } from '../order/enums/order-type.enum';
 import { DeliveryAssignmentStatusEnum } from './enum/delivery-assignment-status.enum';
 import { UserService } from '../user/user.service';
 import { OrderGateway } from '../socket/gateways/order/order.gateway';
+import { FindAllDeliveryAssignmentsDto } from './dto/find-all-delivery-assignments.dto';
 
 @Injectable()
 export class DeliveryAssignmentsService {
@@ -390,5 +391,55 @@ export class DeliveryAssignmentsService {
       order_id,
       delivery_user_id: auth.user_id,
     });
+  }
+
+  async findAllForSuperAdmin({
+    status,
+    order_id,
+    delivery_id,
+    from_date,
+    to_date,
+    page = 1,
+    limit = 10,
+  }: FindAllDeliveryAssignmentsDto) {
+    const qb = this.deliveryAssignmentRepository
+      .createQueryBuilder('assignment')
+      .leftJoinAndSelect('assignment.order', 'order')
+      .leftJoinAndSelect('assignment.delivery', 'delivery');
+
+    if (status) {
+      qb.andWhere('assignment.status = :status', { status });
+    }
+
+    if (order_id) {
+      qb.andWhere('assignment.order_id = :order_id', { order_id });
+    }
+
+    if (delivery_id) {
+      qb.andWhere('assignment.delivery_id = :delivery_id', { delivery_id });
+    }
+
+    if (from_date) {
+      qb.andWhere('assignment.created_at >= :from_date', { from_date });
+    }
+
+    if (to_date) {
+      qb.andWhere('assignment.created_at <= :to_date', { to_date });
+    }
+
+    qb.orderBy('assignment.created_at', 'DESC')
+      .addOrderBy('assignment.id', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [assignments, total] = await qb.getManyAndCount();
+
+    return {
+      assignments,
+      total,
+      page,
+      limit,
+      total_pages: Math.ceil(total / limit),
+    };
   }
 }
