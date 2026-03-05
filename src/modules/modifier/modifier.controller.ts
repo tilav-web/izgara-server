@@ -22,10 +22,7 @@ import { UpdateModifierDto } from './dto/update-modifier.dto';
 export class ModifierController {
   constructor(private readonly modifierService: ModifierService) {}
 
-  @Get('/admin/all')
-  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
-  @Roles(AuthRoleEnum.SUPERADMIN)
-  @ApiBearerAuth('access_token')
+  @Get('/')
   async findAllForAdmin(@Query() dto: FindAllModifierFilterDto) {
     return this.modifierService.findAll(dto, AuthRoleEnum.SUPERADMIN);
   }
