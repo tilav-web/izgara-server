@@ -19,12 +19,14 @@ import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 import { ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthStatusGuard } from '../auth/guard/status.guard';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('products')
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
   @Get()
+  @Throttle({ default: { ttl: 60000, limit: 200 } })
   async findAll(@Query() dto: FindAllFilterDto) {
     return this.productService.findAll(dto);
   }
