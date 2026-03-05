@@ -9,15 +9,12 @@ import { In, Repository } from 'typeorm';
 import { OrderModifierDto } from '../order/dto/order-modifier.dto';
 import { FindAllModifierFilterDto } from './dto/find-all-filter.dto';
 import { UpdateModifierDto } from './dto/update-modifier.dto';
-import { ModifierGroup } from '../modifierGroup/modifier-group.entity';
 
 @Injectable()
 export class ModifierService {
   constructor(
     @InjectRepository(Modifier)
     private readonly repository: Repository<Modifier>,
-    @InjectRepository(ModifierGroup)
-    private readonly modifierGroupRepository: Repository<ModifierGroup>,
   ) {}
 
   async getTotalPrice(dto?: OrderModifierDto[]) {
@@ -82,8 +79,6 @@ export class ModifierService {
     group_id,
     product_id,
     name,
-    price_min,
-    price_max,
     is_active,
   }: FindAllModifierFilterDto) {
     const qb = this.repository
@@ -102,22 +97,6 @@ export class ModifierService {
       qb.andWhere('LOWER(modifier.name) LIKE LOWER(:name)', {
         name: `%${name}%`,
       });
-    }
-
-    if (price_min !== undefined && price_max !== undefined) {
-      if (price_min > price_max) {
-        throw new BadRequestException(
-          "Narx bo'yicha qidirish uchun min va max mantiqan to'g'ri bo'lishi kerak!",
-        );
-      }
-      qb.andWhere('modifier.price BETWEEN :price_min AND :price_max', {
-        price_min,
-        price_max,
-      });
-    } else if (price_min !== undefined) {
-      qb.andWhere('modifier.price >= :price_min', { price_min });
-    } else if (price_max !== undefined) {
-      qb.andWhere('modifier.price <= :price_max', { price_max });
     }
 
     if (is_active !== undefined) {

@@ -37,7 +37,7 @@ export class Modifier {
   group: ModifierGroup; // Modifikator tegishli bo'lgan guruh
 
   @Column({ name: 'group_id' })
-  group_id: number;
+  group_id: string; // Guruhning UUID identifikatori
 
   @CreateDateColumn()
   created_at: Date;

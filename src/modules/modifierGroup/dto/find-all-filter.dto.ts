@@ -32,30 +32,4 @@ export class FindAllModifierGroupFilterDto {
   @IsOptional()
   @IsString()
   name?: string;
-
-  @ApiPropertyOptional({ description: 'Minimal sort_order', example: 0 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  sort_order_min?: number;
-
-  @ApiPropertyOptional({ description: 'Maksimal sort_order', example: 10 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  sort_order_max?: number;
-
-  @ApiPropertyOptional({ description: 'Minimal tanlash soni', example: 0 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  min_selected_amount?: number;
-
-  @ApiPropertyOptional({ description: 'Maksimal tanlash soni', example: 3 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  max_selected_amount?: number;
 }

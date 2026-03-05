@@ -8,15 +8,12 @@ import { ModifierGroup } from './modifier-group.entity';
 import { Repository } from 'typeorm';
 import { FindAllModifierGroupFilterDto } from './dto/find-all-filter.dto';
 import { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
-import { Product } from '../product/product.entity';
 
 @Injectable()
 export class ModifierGroupService {
   constructor(
     @InjectRepository(ModifierGroup)
     private readonly repository: Repository<ModifierGroup>,
-    @InjectRepository(Product)
-    private readonly productRepository: Repository<Product>,
   ) {}
 
   async findAll({
@@ -24,10 +21,6 @@ export class ModifierGroupService {
     limit = 10,
     product_id,
     name,
-    sort_order_min,
-    sort_order_max,
-    min_selected_amount,
-    max_selected_amount,
   }: FindAllModifierGroupFilterDto) {
     const qb = this.repository.createQueryBuilder('modifier_group');
 
@@ -38,38 +31,6 @@ export class ModifierGroupService {
     if (name) {
       qb.andWhere('LOWER(modifier_group.name) LIKE LOWER(:name)', {
         name: `%${name}%`,
-      });
-    }
-
-    if (sort_order_min !== undefined && sort_order_max !== undefined) {
-      if (sort_order_min > sort_order_max) {
-        throw new BadRequestException(
-          "sort_order uchun min va max mantiqan to'g'ri bo'lishi kerak!",
-        );
-      }
-      qb.andWhere(
-        'modifier_group.sort_order BETWEEN :sort_order_min AND :sort_order_max',
-        { sort_order_min, sort_order_max },
-      );
-    } else if (sort_order_min !== undefined) {
-      qb.andWhere('modifier_group.sort_order >= :sort_order_min', {
-        sort_order_min,
-      });
-    } else if (sort_order_max !== undefined) {
-      qb.andWhere('modifier_group.sort_order <= :sort_order_max', {
-        sort_order_max,
-      });
-    }
-
-    if (min_selected_amount !== undefined) {
-      qb.andWhere('modifier_group.min_selected_amount = :min_selected_amount', {
-        min_selected_amount,
-      });
-    }
-
-    if (max_selected_amount !== undefined) {
-      qb.andWhere('modifier_group.max_selected_amount = :max_selected_amount', {
-        max_selected_amount,
       });
     }
 

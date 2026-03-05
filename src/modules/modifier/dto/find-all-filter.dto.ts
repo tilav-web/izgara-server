@@ -2,7 +2,6 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsInt,
-  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -48,18 +47,6 @@ export class FindAllModifierFilterDto {
   @IsOptional()
   @IsString()
   name?: string;
-
-  @ApiPropertyOptional({ description: 'Minimal narx', example: 1000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  price_min?: number;
-
-  @ApiPropertyOptional({ description: 'Maksimal narx', example: 10000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  price_max?: number;
 
   @ApiPropertyOptional({ description: 'Faqat aktivlar', example: true })
   @IsOptional()
