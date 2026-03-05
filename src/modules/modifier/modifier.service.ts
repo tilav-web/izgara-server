@@ -9,12 +9,15 @@ import { In, Repository } from 'typeorm';
 import { OrderModifierDto } from '../order/dto/order-modifier.dto';
 import { FindAllModifierFilterDto } from './dto/find-all-filter.dto';
 import { UpdateModifierDto } from './dto/update-modifier.dto';
+import { FileService } from '../file/file.service';
+import { FileFolderEnum } from '../file/enums/file-folder.enum';
 
 @Injectable()
 export class ModifierService {
   constructor(
     @InjectRepository(Modifier)
     private readonly repository: Repository<Modifier>,
+    private readonly fileService: FileService,
   ) {}
 
   async getTotalPrice(dto?: OrderModifierDto[]) {
@@ -136,16 +139,19 @@ export class ModifierService {
     return modifier;
   }
 
-  async update(id: string, dto: UpdateModifierDto) {
+  async update(
+    id: string,
+    dto: UpdateModifierDto & { image?: Express.Multer.File },
+  ) {
     if (!id) {
       throw new BadRequestException(
         'Modifier id sini yuborish majburiy uni params da yuboring!',
       );
     }
 
-    const hasUpdateField = Object.values(dto).some(
-      (value) => value !== undefined,
-    );
+    const hasUpdateField =
+      dto.image ||
+      Object.values(dto).some((value) => value !== undefined && value !== null);
     if (!hasUpdateField) {
       throw new BadRequestException('Hech qanday maydon yuborilmadi!');
     }
@@ -158,12 +164,25 @@ export class ModifierService {
       throw new NotFoundException('Modifier topilmadi!');
     }
 
-    if (dto.name !== undefined) modifier.name = dto.name;
-    if (dto.image !== undefined) modifier.image = dto.image;
-    if (dto.max_quantity !== undefined)
+    if (dto.image) {
+      if (modifier.image) {
+        await this.fileService.deleteFile(modifier.image);
+      }
+
+      modifier.image = await this.fileService.saveFile({
+        file: dto.image,
+        folder: FileFolderEnum.MODIFIERS,
+        entityId: modifier.id,
+      });
+    }
+
+    if (dto.name !== undefined && dto.name !== null) modifier.name = dto.name;
+    if (dto.max_quantity !== undefined && dto.max_quantity !== null)
       modifier.max_quantity = dto.max_quantity;
-    if (dto.sort_order !== undefined) modifier.sort_order = dto.sort_order;
-    if (dto.is_active !== undefined) modifier.is_active = dto.is_active;
+    if (dto.sort_order !== undefined && dto.sort_order !== null)
+      modifier.sort_order = dto.sort_order;
+    if (dto.is_active !== undefined && dto.is_active !== null)
+      modifier.is_active = dto.is_active;
 
     return this.repository.save(modifier);
   }

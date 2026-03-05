@@ -14,10 +14,13 @@ export class UpdateModifierDto {
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Modifier rasmi (URL yoki key)' })
+  @ApiPropertyOptional({
+    type: 'string',
+    format: 'binary',
+    description: 'Modifier rasmi',
+  })
   @IsOptional()
-  @IsString()
-  image?: string | null;
+  image?: Express.Multer.File;
 
   @ApiPropertyOptional({ description: 'Maksimal tanlash soni', example: 3 })
   @IsOptional()
