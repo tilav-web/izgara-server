@@ -158,9 +158,7 @@ export class ProductService {
 
     const qb = this.repository
       .createQueryBuilder('product')
-      .leftJoin('product.category', 'category')
-      .leftJoinAndSelect('product.modifier_groups', 'modifier_groups')
-      .leftJoinAndSelect('modifier_groups.modifiers', 'modifiers');
+      .leftJoin('product.category', 'category');
 
     if (category_id) {
       qb.andWhere('product.category_id = :category_id', { category_id });
