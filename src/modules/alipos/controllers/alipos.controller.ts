@@ -17,6 +17,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { AuthStatusGuard } from '../../auth/guard/status.guard';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('alipos')
 export class AliPosController {
@@ -26,6 +27,7 @@ export class AliPosController {
   @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
   @ApiBearerAuth('access_token')
   @Roles(AuthRoleEnum.SUPERADMIN)
+  @Throttle({ default: { ttl: 60000, limit: 1 } })
   async findAllAliposData() {
     return this.aliPosService.updateAllData();
   }
