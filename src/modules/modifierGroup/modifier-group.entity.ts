@@ -37,7 +37,10 @@ export class ModifierGroup {
   @Column() // Shunchaki ID bilan ishlash uchun qo'shimcha ustun
   product_id: string;
 
-  @OneToMany(() => Modifier, (modifier) => modifier.group, { cascade: true })
+  @OneToMany(() => Modifier, (modifier) => modifier.group, {
+    cascade: true,
+    orphanedRowAction: 'delete',
+  })
   modifiers: Modifier[];
 
   @CreateDateColumn()

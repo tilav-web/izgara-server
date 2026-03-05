@@ -51,7 +51,10 @@ export class Product {
   @JoinColumn({ name: 'category_id' })
   category: Category;
 
-  @OneToMany(() => ModifierGroup, (group) => group.product, { cascade: true })
+  @OneToMany(() => ModifierGroup, (group) => group.product, {
+    cascade: true,
+    orphanedRowAction: 'delete',
+  })
   modifier_groups: ModifierGroup[];
 
   @CreateDateColumn()
