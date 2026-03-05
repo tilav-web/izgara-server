@@ -7,15 +7,15 @@ import {
 import { AliPosBaseService } from './base.service';
 import { HttpService } from '@nestjs/axios';
 import { ALIPOST_API_ENDPOINTS } from '../utils/constants';
-import { ProductService } from '../../product/product.service';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from '../../product/product.entity';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { firstValueFrom } from 'rxjs';
 import { MeasureEnum } from '../../product/enums/measure.enum';
 import { CategoryService } from '../../category/category.service';
 import { Modifier } from '../../modifier/modifier.entity';
+import { ModifierGroup } from '../../modifierGroup/modifier-group.entity';
 import { type AxiosError } from 'axios';
 import { Order } from '../../order/schemas/order.entity';
 import { OrderPaymentMethodEnum } from '../../order/enums/order-payment-status.enum';
@@ -60,10 +60,11 @@ export class AliPosService extends AliPosBaseService {
   constructor(
     httpService: HttpService,
     configService: ConfigService,
-    private readonly productService: ProductService,
     private readonly categoryService: CategoryService,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(ModifierGroup)
+    private readonly modifierGroupRepository: Repository<ModifierGroup>,
     @InjectRepository(Modifier)
     private readonly modifierRepository: Repository<Modifier>,
     @InjectRepository(Order)
@@ -91,49 +92,127 @@ export class AliPosService extends AliPosBaseService {
       sort_order: category.sortOrder,
     }));
 
-    // 2. Mahsulotlar va ularning ichki tuzilmasini tayyorlash
-    const productsToSave = data.items.map((item) => {
-      return {
-        id: item.id,
-        category_id: item.categoryId,
-        name: item.name,
-        description: item.description,
-        price: item.price,
-        vat: item.vat,
-        measure: item.measure,
-        measure_unit:
-          item.measureUnit === 'мл'
-            ? MeasureEnum.L
-            : item.measureUnit === 'г'
-              ? MeasureEnum.KG
-              : MeasureEnum.PCS,
-        sort_order: item.sortOrder,
-        is_active: true, // Yangilangan menyu mahsulotlari sukut bo'yicha aktiv
+    // 2. Mahsulotlar, guruhlar va modifikatorlarni alohida tayyorlaymiz.
+    // Bu yondashuv nested save paytida FK ni NULL qilish xatosini oldini oladi.
+    const productsToUpsert = data.items.map((item) => ({
+      id: item.id,
+      category_id: item.categoryId,
+      name: item.name,
+      description: item.description,
+      price: item.price,
+      vat: item.vat,
+      measure: item.measure,
+      measure_unit:
+        item.measureUnit === 'мл'
+          ? MeasureEnum.L
+          : item.measureUnit === 'г'
+            ? MeasureEnum.KG
+            : MeasureEnum.PCS,
+      sort_order: item.sortOrder,
+      is_active: true,
+    }));
 
-        // Har bir guruhni map qilish
-        modifier_groups: (item.modifierGroups || []).map((group) => ({
+    const modifierGroupsToUpsert: Array<{
+      id: string;
+      name: string;
+      sort_order: number;
+      min_selected_amount: number;
+      max_selected_amount: number;
+      product_id: string;
+    }> = [];
+
+    const modifiersToUpsert: Array<{
+      id: string;
+      name: string;
+      price: number;
+      sort_order: number;
+      max_quantity: number;
+      is_active: boolean;
+      group_id: string;
+    }> = [];
+
+    for (const item of data.items) {
+      for (const group of item.modifierGroups || []) {
+        modifierGroupsToUpsert.push({
           id: group.id,
           name: group.name,
           sort_order: group.sortOrder,
           min_selected_amount: group.minSelectedAmount,
           max_selected_amount: group.maxSelectedAmount,
-          modifiers: (group.modifiers || []).map((modifier) => ({
+          product_id: item.id,
+        });
+
+        for (const modifier of group.modifiers || []) {
+          modifiersToUpsert.push({
             id: modifier.id,
             name: modifier.name,
             price: modifier.price,
-            vat: modifier.vat,
             sort_order: modifier.sortOrder,
             max_quantity: 1,
             is_active: true,
-          })),
-        })),
-      };
-    });
+            group_id: group.id,
+          });
+        }
+      }
+    }
 
     try {
       // 3. Ma'lumotlarni bazaga yozish
       await this.categoryService.upsertMany(categories);
-      await this.productService.saveMenu(productsToSave);
+
+      if (productsToUpsert.length > 0) {
+        await this.productRepository.upsert(productsToUpsert, ['id']);
+      }
+
+      if (modifierGroupsToUpsert.length > 0) {
+        await this.modifierGroupRepository.upsert(modifierGroupsToUpsert, [
+          'id',
+        ]);
+      }
+
+      if (modifiersToUpsert.length > 0) {
+        await this.modifierRepository.upsert(modifiersToUpsert, ['id']);
+      }
+
+      // 4. Menyudan olib tashlangan elementlarni tozalash
+      const productIds = productsToUpsert.map((item) => item.id);
+      if (productIds.length > 0) {
+        const groupIds = modifierGroupsToUpsert.map((group) => group.id);
+        const modifierIds = modifiersToUpsert.map((modifier) => modifier.id);
+
+        const existingGroups = await this.modifierGroupRepository.find({
+          where: { product_id: In(productIds) },
+          select: { id: true },
+        });
+
+        const scopedGroupIds = existingGroups.map((group) => group.id);
+
+        if (scopedGroupIds.length > 0) {
+          const deleteModifierQb = this.modifierRepository
+            .createQueryBuilder()
+            .delete()
+            .where('group_id IN (:...groupIds)', { groupIds: scopedGroupIds });
+
+          if (modifierIds.length > 0) {
+            deleteModifierQb.andWhere('id NOT IN (:...modifierIds)', {
+              modifierIds,
+            });
+          }
+
+          await deleteModifierQb.execute();
+        }
+
+        const deleteGroupQb = this.modifierGroupRepository
+          .createQueryBuilder()
+          .delete()
+          .where('product_id IN (:...productIds)', { productIds });
+
+        if (groupIds.length > 0) {
+          deleteGroupQb.andWhere('id NOT IN (:...groupIds)', { groupIds });
+        }
+
+        await deleteGroupQb.execute();
+      }
     } catch (error) {
       throw new Error((error as AxiosError).message);
     }
