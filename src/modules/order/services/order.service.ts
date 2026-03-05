@@ -574,6 +574,8 @@ export class OrderService {
 
   // Bu metod controllerda chaqiriladi
   async createOrder(auth_id: number, dto: CreateOrderDto) {
+    console.log(dto);
+
     const { total_price, user, delivery_fee, items_price } =
       await this.makeOrderTotalPrice(auth_id, dto);
     const items = await this.productService.findByIds(dto.products);
