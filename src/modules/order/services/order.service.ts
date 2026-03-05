@@ -114,7 +114,10 @@ export class OrderService {
 
     let delivery_fee: number = 0;
 
-    if (items_price < deliverySettings.free_delivery_threshold) {
+    if (
+      dto.order_type === OrderTypeEnum.DELIVERY &&
+      items_price < deliverySettings.free_delivery_threshold
+    ) {
       delivery_fee = Number(deliverySettings.delivery_price);
     }
 
@@ -626,7 +629,10 @@ export class OrderService {
       }
     }
 
-    if (dto.order_type === OrderTypeEnum.PICKUP) {
+    if (
+      dto.order_type === OrderTypeEnum.PICKUP ||
+      dto.order_type === OrderTypeEnum.INPLACE
+    ) {
       const ctx: CreateOrderContext = { ...orderContextBase };
       switch (dto.payment_method) {
         case OrderPaymentMethodEnum.PAYMENT_COIN:
