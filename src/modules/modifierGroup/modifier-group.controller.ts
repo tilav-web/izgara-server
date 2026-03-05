@@ -24,7 +24,7 @@ export class ModifierGroupController {
 
   @Get('/')
   async findAllForAdmin(@Query() dto: FindAllModifierGroupFilterDto) {
-    return this.modifierGroupService.findAll(dto, AuthRoleEnum.SUPERADMIN);
+    return this.modifierGroupService.findAll(dto);
   }
 
   @Get('/:id')

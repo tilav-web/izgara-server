@@ -7,7 +7,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ModifierGroup } from './modifier-group.entity';
 import { Repository } from 'typeorm';
 import { FindAllModifierGroupFilterDto } from './dto/find-all-filter.dto';
-import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 import { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
 import { Product } from '../product/product.entity';
 
@@ -20,22 +19,17 @@ export class ModifierGroupService {
     private readonly productRepository: Repository<Product>,
   ) {}
 
-  async findAll(
-    {
-      page = 1,
-      limit = 10,
-      product_id,
-      name,
-      sort_order_min,
-      sort_order_max,
-      min_selected_amount,
-      max_selected_amount,
-    }: FindAllModifierGroupFilterDto,
-    role?: AuthRoleEnum,
-  ) {
-    const qb = this.repository
-      .createQueryBuilder('modifier_group')
-      .leftJoinAndSelect('modifier_group.product', 'product');
+  async findAll({
+    page = 1,
+    limit = 10,
+    product_id,
+    name,
+    sort_order_min,
+    sort_order_max,
+    min_selected_amount,
+    max_selected_amount,
+  }: FindAllModifierGroupFilterDto) {
+    const qb = this.repository.createQueryBuilder('modifier_group');
 
     if (product_id) {
       qb.andWhere('modifier_group.product_id = :product_id', { product_id });
@@ -77,10 +71,6 @@ export class ModifierGroupService {
       qb.andWhere('modifier_group.max_selected_amount = :max_selected_amount', {
         max_selected_amount,
       });
-    }
-
-    if (role !== AuthRoleEnum.SUPERADMIN) {
-      qb.andWhere('product.is_active = true');
     }
 
     const skip = (page - 1) * limit;

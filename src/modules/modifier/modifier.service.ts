@@ -8,7 +8,6 @@ import { Modifier } from './modifier.entity';
 import { In, Repository } from 'typeorm';
 import { OrderModifierDto } from '../order/dto/order-modifier.dto';
 import { FindAllModifierFilterDto } from './dto/find-all-filter.dto';
-import { AuthRoleEnum } from '../auth/enums/auth-role.enum';
 import { UpdateModifierDto } from './dto/update-modifier.dto';
 import { ModifierGroup } from '../modifierGroup/modifier-group.entity';
 
@@ -77,19 +76,16 @@ export class ModifierService {
     });
   }
 
-  async findAll(
-    {
-      page = 1,
-      limit = 10,
-      group_id,
-      product_id,
-      name,
-      price_min,
-      price_max,
-      is_active,
-    }: FindAllModifierFilterDto,
-    role?: AuthRoleEnum,
-  ) {
+  async findAll({
+    page = 1,
+    limit = 10,
+    group_id,
+    product_id,
+    name,
+    price_min,
+    price_max,
+    is_active,
+  }: FindAllModifierFilterDto) {
     const qb = this.repository
       .createQueryBuilder('modifier')
       .leftJoinAndSelect('modifier.group', 'group');
@@ -124,9 +120,7 @@ export class ModifierService {
       qb.andWhere('modifier.price <= :price_max', { price_max });
     }
 
-    if (role !== AuthRoleEnum.SUPERADMIN) {
-      qb.andWhere('modifier.is_active = true');
-    } else if (is_active !== undefined) {
+    if (is_active !== undefined) {
       qb.andWhere('modifier.is_active = :is_active', { is_active });
     }
 
