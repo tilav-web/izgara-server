@@ -20,6 +20,13 @@ export class ModifierService {
     private readonly fileService: FileService,
   ) {}
 
+  private withImageUrl<T extends { image?: string | null }>(item: T): T {
+    return {
+      ...item,
+      image: this.fileService.getPublicUrl(item.image),
+    };
+  }
+
   async getTotalPrice(dto?: OrderModifierDto[]) {
     if (!dto || dto.length === 0) return { total_price: 0 };
 
@@ -112,7 +119,7 @@ export class ModifierService {
     const [modifiers, total] = await qb.getManyAndCount();
 
     return {
-      modifiers,
+      modifiers: modifiers.map((modifier) => this.withImageUrl(modifier)),
       total,
       page,
       limit,
@@ -136,7 +143,7 @@ export class ModifierService {
       throw new NotFoundException('Modifier topilmadi!');
     }
 
-    return modifier;
+    return this.withImageUrl(modifier);
   }
 
   async update(
@@ -184,6 +191,7 @@ export class ModifierService {
     if (dto.is_active !== undefined && dto.is_active !== null)
       modifier.is_active = dto.is_active;
 
-    return this.repository.save(modifier);
+    const updated = await this.repository.save(modifier);
+    return this.withImageUrl(updated);
   }
 }
