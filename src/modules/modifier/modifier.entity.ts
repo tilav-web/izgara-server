@@ -5,6 +5,7 @@ import {
   ManyToOne,
   CreateDateColumn,
   UpdateDateColumn,
+  JoinColumn,
 } from 'typeorm';
 import { ModifierGroup } from '../modifierGroup/modifier-group.entity';
 
@@ -32,7 +33,11 @@ export class Modifier {
   sort_order: number; // Guruh ichidagi tartibi
 
   @ManyToOne(() => ModifierGroup, (group) => group.modifiers)
+  @JoinColumn({ name: 'group_id' })
   group: ModifierGroup; // Modifikator tegishli bo'lgan guruh
+
+  @Column({ name: 'group_id' })
+  group_id: number;
 
   @CreateDateColumn()
   created_at: Date;
