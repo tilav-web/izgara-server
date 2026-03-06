@@ -54,7 +54,8 @@ export class FileService {
 
     await writeFile(filePath, webpBuffer);
 
-    return `${folder}/${safeEntityId}/${filename}`;
+    const fileKey = `${folder}/${safeEntityId}/${filename}`;
+    return this.getPublicUrl(fileKey) || fileKey;
   }
 
   private normalizeKey(fileRef: string) {
