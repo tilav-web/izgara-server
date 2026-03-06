@@ -39,6 +39,14 @@ export class ProductController {
     return this.productService.findAll(dto, AuthRoleEnum.SUPERADMIN);
   }
 
+  @Get('/admin/:id')
+  @UseGuards(AuthGuard('jwt'), AuthRoleGuard, AuthStatusGuard)
+  @Roles(AuthRoleEnum.SUPERADMIN)
+  @ApiBearerAuth('access_token')
+  async findByIdForAdmin(@Param('id') id: string) {
+    return this.productService.findById(id, AuthRoleEnum.SUPERADMIN);
+  }
+
   @Get('/:id')
   async findById(@Param('id') id: string) {
     return this.productService.findById(id);

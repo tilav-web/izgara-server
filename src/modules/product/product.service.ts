@@ -208,12 +208,16 @@ export class ProductService {
     };
   }
 
-  async findById(id: string) {
+  async findById(id: string, role?: AuthRoleEnum) {
+    const whereCondition =
+      role === AuthRoleEnum.SUPERADMIN
+        ? { id }
+        : { id, category: { is_active: true } };
+
     const product = await this.repository.findOne({
-      where: {
-        id,
-      },
+      where: whereCondition,
       relations: {
+        category: true,
         modifier_groups: {
           modifiers: true,
         },
