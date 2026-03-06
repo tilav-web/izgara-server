@@ -85,6 +85,7 @@ export class AliPosService extends AliPosBaseService {
       ),
     );
     const data = response.data as AlipostApiResponse;
+    console.log(data);
 
     // 1. Kategoriyalarni tayyorlash
     const categories = data.categories.map((category) => ({
