@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -35,8 +36,7 @@ export class AliPosController {
   @Post('/webhook/stoplist/:id')
   async webHookProduct(
     @Param('id') id: string,
-    @Query('restaurantId') restaurantId: string, // Restoran ID-si
-    @Query('count') count: string, // Mahsulot miqdori
+    @Query() query: Record<string, string>, // restaurantId/RestaurantId, count/Count
     @Headers('clientId') clientId: string, // Xavfsizlik uchun clientId
     @Headers('clientSecret') clientSecret: string,
   ) {
@@ -44,10 +44,23 @@ export class AliPosController {
       throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
     }
 
-    const countNum = parseInt(count);
+    const restaurantId = query.restaurantId || query.RestaurantId;
+    const countRaw = query.count || query.Count;
+    const countNum = Number(countRaw);
+
+    if (!restaurantId) {
+      throw new BadRequestException(
+        'restaurantId query param yuborilishi shart',
+      );
+    }
+
+    if (!countRaw || Number.isNaN(countNum)) {
+      throw new BadRequestException('count noto‘g‘ri yuborilgan');
+    }
 
     return this.aliPosService.updateProductOrModifier({
       id,
+      restaurantId,
       countNum,
       clientId,
       clientSecret,
@@ -61,8 +74,23 @@ export class AliPosController {
       eatsId: string;
       status: string;
       orderNumber?: string;
+      restaurantId?: string;
     },
+    @Headers('clientId') clientId: string,
+    @Headers('clientSecret') clientSecret: string,
   ) {
-    return this.aliPosService.updateOrderStatus(body);
+    if (!clientId || !clientSecret) {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    if (!body?.eatsId || !body?.status) {
+      throw new BadRequestException('eatsId va status yuborilishi shart');
+    }
+
+    return this.aliPosService.updateOrderStatus({
+      ...body,
+      clientId,
+      clientSecret,
+    });
   }
 }

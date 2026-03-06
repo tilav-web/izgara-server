@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   BadGatewayException,
   Injectable,
   NotFoundException,
@@ -221,11 +222,13 @@ export class AliPosService extends AliPosBaseService {
 
   async updateProductOrModifier({
     id,
+    restaurantId,
     countNum,
     clientId,
     clientSecret,
   }: {
     id: string;
+    restaurantId: string;
     countNum: number;
     clientId: string;
     clientSecret: string;
@@ -237,6 +240,10 @@ export class AliPosService extends AliPosBaseService {
 
     if (clientId !== originalId || clientSecret !== originalSecret) {
       throw new UnauthorizedException('Xavfsizlik kalitlari xato!');
+    }
+
+    if (this.restaurantId && restaurantId !== this.restaurantId) {
+      throw new BadRequestException('restaurantId noto‘g‘ri yuborilgan');
     }
 
     const isActive = countNum === -1 || countNum > 0;
@@ -391,8 +398,27 @@ export class AliPosService extends AliPosBaseService {
     eatsId: string;
     status: string;
     orderNumber?: string;
+    restaurantId?: string;
+    clientId: string;
+    clientSecret: string;
   }) {
-    const { eatsId, status } = body;
+    const { eatsId, status, restaurantId, clientId, clientSecret } = body;
+    const originalId = this.configService.get('ALIPOS_CLIENT_ID') as string;
+    const originalSecret = this.configService.get(
+      'ALIPOS_CLIENT_SECRET',
+    ) as string;
+
+    if (clientId !== originalId || clientSecret !== originalSecret) {
+      throw new UnauthorizedException('Xavfsizlik kalitlari xato!');
+    }
+
+    if (
+      restaurantId &&
+      this.restaurantId &&
+      restaurantId !== this.restaurantId
+    ) {
+      throw new BadRequestException('restaurantId noto‘g‘ri yuborilgan');
+    }
 
     // 1. Buyurtmani bazadan qidirish
     const order = await this.orderRepository.findOne({
@@ -421,10 +447,16 @@ export class AliPosService extends AliPosBaseService {
       case 'TAKEN_BY_COURIER':
         order.status = OrderStatusEnum.ON_WAY;
         break;
+      case 'DELIVERED':
+        order.status = OrderStatusEnum.DELIVERED;
+        break;
+      case 'CANCELED':
       case 'CANCELLED':
         order.status = OrderStatusEnum.CANCELLED;
         // Agar bekor bo'lsa, coinlarni qaytarish mantiqini shu yerga qo'shish mumkin
         break;
+      default:
+        throw new BadRequestException(`Noma'lum status: ${status}`);
     }
 
     await this.orderRepository.save(order);
