@@ -359,21 +359,22 @@ export class AliPosService extends AliPosBaseService {
     };
 
     try {
-      const response = await firstValueFrom(
-        this.httpService.post('api/Integration/v1/order', payload),
-      );
-      const data = response.data as {
-        orderId: string;
-      };
+      // const response = await firstValueFrom(
+      //   this.httpService.post('api/Integration/v1/order', payload),
+      // );
+      // const data = response.data as {
+      //   orderId: string;
+      // };
 
-      await this.orderRepository.save({
-        ...order,
-        alipos_order_id: data.orderId,
-        status: OrderStatusEnum.IN_PROGRESS,
-      });
-      // await new Promise((resolve) => setTimeout(resolve, 2000));
+      // await this.orderRepository.save({
+      //   ...order,
+      //   alipos_order_id: data.orderId,
+      //   status: OrderStatusEnum.IN_PROGRESS,
+      // });
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       console.log(
-        `Order ${order.id} sent to AliPos with Alipos Order ID: ${data.orderId}`,
+        `Order ${order.id} sent to AliPos with Alipos Order ID`,
+        payload,
       );
     } catch (error) {
       const axiosError = error as AxiosError;
