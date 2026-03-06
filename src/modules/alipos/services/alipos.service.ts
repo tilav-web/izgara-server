@@ -306,15 +306,28 @@ export class AliPosService extends AliPosBaseService {
 
     // 2. AliPos Payload tayyorlash
 
+    const modifierLines = order.items.flatMap((item, itemIndex) =>
+      (item.order_item_modifiers || []).map((mod) => {
+        const productName =
+          item.product?.name || item.product_name || 'Mahsulot';
+        return `${itemIndex + 1}. ${productName} - ${mod.modifier_name} x${Number(mod.quantity || 1)}`;
+      }),
+    );
+
+    const comment = [
+      'TEST QILINMOQDA TAYYORLANMASIN',
+      modifierLines.length ? `Modifierlar:\n${modifierLines.join('\n')}` : null,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join('\n');
+
     const payload = {
       discriminator:
         order.order_type === OrderTypeEnum.DELIVERY ? 'delivery' : 'pickup',
-      platform: 'CLIENT_APP_ANDROID',
+      platform: 'IZGARA_MOBILE',
       eatsId: order.id,
       restaurantId: this.restaurantId,
-      comment: order.address
-        ? 'TEST QILINMOQDA TAYYORLANMASIN' + order.address
-        : 'TEST QILINMOQDA TAYYORLANMASIN',
+      comment,
       deliveryInfo: {
         clientName: 'Mijoz',
         phoneNumber: order.customer_phone,
