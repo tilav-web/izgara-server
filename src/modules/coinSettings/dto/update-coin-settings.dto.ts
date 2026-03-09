@@ -30,6 +30,15 @@ export class CreateCoinSettingsDto {
   min_spend_limit: number;
 
   @ApiProperty({
+    example: 100000.0,
+    description:
+      "Coin ishlatish uchun talab qilinadigan minimal coin qiymati (so'mda).",
+  })
+  @IsNumber()
+  @Min(0)
+  min_coin_value_to_use: number;
+
+  @ApiProperty({
     example: 1000,
     description:
       'Bitta buyurtma uchun beriladigan maksimal coin miqdori (limit).',

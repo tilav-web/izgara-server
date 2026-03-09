@@ -155,6 +155,8 @@ export class ProductService {
     role?: AuthRoleEnum,
   ) {
     const coinSettings = await this.coinSettingsService.findCoinSettings();
+    const coinUsageInfo =
+      this.coinSettingsService.getCoinUsageInfo(coinSettings);
 
     const qb = this.repository
       .createQueryBuilder('product')
@@ -201,6 +203,7 @@ export class ProductService {
 
     return {
       products,
+      coin_usage_info: coinUsageInfo,
       total,
       page,
       limit,
@@ -227,6 +230,8 @@ export class ProductService {
       throw new NotFoundException('Mahsulot topilmadi!');
     }
     const coinSettings = await this.coinSettingsService.findCoinSettings();
+    const coinUsageInfo =
+      this.coinSettingsService.getCoinUsageInfo(coinSettings);
 
     return {
       ...this.withImageUrl(product),
@@ -234,6 +239,7 @@ export class ProductService {
         product_price: product?.price ?? 0,
         coinSettings,
       }),
+      coin_usage_info: coinUsageInfo,
     };
   }
 

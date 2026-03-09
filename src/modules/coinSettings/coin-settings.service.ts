@@ -4,6 +4,7 @@ import { CoinSettings } from './coin-settings.entity';
 import { Repository } from 'typeorm';
 import { CoinSettingsRedisService } from '../redis/coin-settings-redis.service';
 import { UpdateCoinSettingsDto } from './dto/update-coin-settings.dto';
+import { buildCoinUsageInfo } from '../../utils/coin-usage-info';
 
 @Injectable()
 export class CoinSettingsService {
@@ -29,6 +30,7 @@ export class CoinSettingsService {
           process.env.SPEND_AMOUNT_FOR_ONE_COIN,
         ),
         min_spend_limit: Number(process.env.MIN_SPEND_LIMIT),
+        min_coin_value_to_use: Number(process.env.MIN_COIN_VALUE_TO_USE || 0),
         max_coins_per_order: Number(process.env.MAX_COINS_PER_ORDER),
       });
       await this.repository.save(settings);
@@ -56,5 +58,9 @@ export class CoinSettingsService {
     });
 
     return updatedSettings;
+  }
+
+  getCoinUsageInfo(coinSettings: CoinSettings | null): string {
+    return buildCoinUsageInfo(coinSettings);
   }
 }

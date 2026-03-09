@@ -241,6 +241,38 @@ export class OrderService {
     items_price,
   }: CreateOrderContext): Promise<Order> {
     const coinSettings = await this.coinSettingsService.findCoinSettings();
+
+    if (!coinSettings || !coinSettings.is_active) {
+      throw new ForbiddenException("Coin orqali to'lov vaqtincha mavjud emas.");
+    }
+
+    const valuePerCoin = Number(coinSettings.value_per_coin);
+    const minCoinValueToUse = Number(coinSettings.min_coin_value_to_use);
+    const userCoinBalance = Number(user.coin_balance);
+
+    if (
+      !Number.isFinite(valuePerCoin) ||
+      valuePerCoin <= 0 ||
+      !Number.isFinite(userCoinBalance) ||
+      userCoinBalance < 0
+    ) {
+      throw new BadRequestException(
+        "Coin sozlamalari noto'g'ri, iltimos administratorga murojaat qiling.",
+      );
+    }
+
+    const userCoinValue = userCoinBalance * valuePerCoin;
+
+    if (
+      Number.isFinite(minCoinValueToUse) &&
+      minCoinValueToUse > 0 &&
+      userCoinValue < minCoinValueToUse
+    ) {
+      throw new ForbiddenException(
+        `Coin ishlatish uchun balansingiz kamida ${minCoinValueToUse.toFixed(2)} so'm ekvivalentiga yetishi kerak.`,
+      );
+    }
+
     const totalCoin = calculatePriceToCoin({
       coinSettings,
       product_price: total_price,

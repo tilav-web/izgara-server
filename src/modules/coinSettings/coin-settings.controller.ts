@@ -14,7 +14,11 @@ export class CoinSettingsController {
 
   @Get()
   async findCoinSetting() {
-    return this.coinSettingsService.findCoinSettings();
+    const settings = await this.coinSettingsService.findCoinSettings();
+    return {
+      ...settings,
+      coin_usage_info: this.coinSettingsService.getCoinUsageInfo(settings),
+    };
   }
 
   @Patch('/update')
@@ -22,6 +26,10 @@ export class CoinSettingsController {
   @Roles(AuthRoleEnum.SUPERADMIN)
   @ApiBearerAuth('access_token')
   async updateCoinSettings(@Body() body: UpdateCoinSettingsDto) {
-    return this.coinSettingsService.updateCoinSettings(body);
+    const settings = await this.coinSettingsService.updateCoinSettings(body);
+    return {
+      ...settings,
+      coin_usage_info: this.coinSettingsService.getCoinUsageInfo(settings),
+    };
   }
 }
