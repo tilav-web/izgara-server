@@ -9,6 +9,7 @@ import { UserModule } from '../user/user.module';
 import { JwtStrategy } from './strategy/jwt.strategy';
 import { User } from '../user/user.entity';
 import { AuthStatusGuard } from './guard/status.guard';
+import { SmsModule } from '../sms/sms.module';
 
 @Global()
 @Module({
@@ -21,6 +22,7 @@ import { AuthStatusGuard } from './guard/status.guard';
       }),
     }),
     UserModule,
+    SmsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, AuthStatusGuard],

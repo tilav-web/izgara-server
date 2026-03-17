@@ -22,6 +22,7 @@ import { User } from '../user/user.entity';
 import { JwtTypeEnum } from './enums/jwt-type.enum';
 import { TelegramStatusEnum } from './guard/telegram-status.enum';
 import { Auth } from './auth.entity';
+import { SmsService } from '../sms/sms.service';
 
 @Injectable()
 export class AuthService {
@@ -33,6 +34,7 @@ export class AuthService {
     private readonly authRedisService: AuthRedisService,
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
+    private readonly smsService: SmsService,
   ) {}
 
   private generateJwt({ id, role }: { id: number; role: AuthRoleEnum }) {
@@ -165,13 +167,16 @@ export class AuthService {
     }
 
     const code = otpCodeGenerate();
+    await this.smsService.sendSms({
+      code,
+      phone: cleanPhone,
+    });
 
     await this.otpRedisService.setOtpByPhone({ phone: cleanPhone, code });
     return {
       message:
         'Telefon raqamingizga 4 xonali kod yubirdik amal qilish muddati 1 daqiqa!',
-      code,
-    }; // o'chirish kerak keyinchalik kodni
+    };
   }
 
   async verifyOtp({ phone, code }: { phone: string; code: number }) {

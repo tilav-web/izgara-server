@@ -68,7 +68,6 @@ export class AuthController {
     // Oddiy user uchun
     return {
       message: result.message,
-      code: result.code,
     };
   }
 

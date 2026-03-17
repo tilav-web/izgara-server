@@ -19,6 +19,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PaymentModule } from './modules/payment/payment.module';
 import { APP_GUARD } from '@nestjs/core';
 import { BotModule } from './modules/bot/bot.module';
+import { SmsModule } from './modules/sms/sms.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { BotModule } from './modules/bot/bot.module';
     JobsModule,
     OrderModule,
     PaymentModule,
+    SmsModule,
   ],
   providers: [
     {
