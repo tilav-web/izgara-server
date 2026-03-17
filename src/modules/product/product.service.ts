@@ -276,6 +276,11 @@ export class ProductService {
     }
 
     if (dto.name !== undefined && dto.name !== null) product.name = dto.name;
+    if (dto.package_code !== undefined && dto.package_code !== null)
+      product.package_code = dto.package_code;
+    if (dto.ikpu_code !== undefined && dto.ikpu_code !== null)
+      product.ikpu_code = dto.ikpu_code;
+    if (dto.name !== undefined && dto.name !== null) product.name = dto.name;
     if (dto.description !== undefined && dto.description !== null)
       product.description = dto.description;
     if (dto.vat !== undefined && dto.vat !== null) product.vat = dto.vat;
