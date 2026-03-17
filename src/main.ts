@@ -42,22 +42,28 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('swagger', app, document);
 
-  const allowedOrigins = process.env.CORS_ORIGINS?.split(',') ?? [];
+  const allowedOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim())
+    : [];
 
   app.enableCors({
-    origin: (
-      origin: string | undefined,
-      callback: (err: Error | null, allow?: boolean) => void,
-    ) => {
-      if (!origin) return callback(null, true);
+    origin: (origin, callback) => {
+      // Server-to-server yoki Postman kabi so'rovlarda origin bo'lmasligi mumkin
+      if (!origin) {
+        return callback(null, true);
+      }
 
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error(`Not allowed by CORS ${origin}`));
+        // Xato o'rniga false qaytarish xavfsizroq va standartroq
+        callback(null, false);
       }
     },
     credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
 
   app.use(cookieParser());
