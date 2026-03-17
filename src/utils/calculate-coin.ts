@@ -10,17 +10,17 @@ export const calculatePriceToCoin = ({
   if ((coinSettings && !coinSettings.is_active) || !coinSettings)
     return { coin_price: '0.00' };
 
-  const spendAmountForOneCoin = Number(coinSettings.spend_amount_for_one_coin);
+  const valuePerCoin = Number(coinSettings.value_per_coin);
   const productPrice = Number(product_price);
   if (
-    !Number.isFinite(spendAmountForOneCoin) ||
-    spendAmountForOneCoin <= 0 ||
+    !Number.isFinite(valuePerCoin) ||
+    valuePerCoin <= 0 ||
     !Number.isFinite(productPrice) ||
     productPrice <= 0
   )
     return { coin_price: '0.00' };
 
-  const coin_price = (productPrice / spendAmountForOneCoin).toFixed(2);
+  const coin_price = (productPrice / valuePerCoin).toFixed(2);
 
   return { coin_price };
 };
