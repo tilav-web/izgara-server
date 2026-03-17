@@ -29,6 +29,18 @@ import {
 import { generatePaymeUrl } from '../../../utils/generate-payme-url';
 import { OrderService } from '../../order/services/order.service';
 import { OrderGateway } from '../../socket/gateways/order/order.gateway';
+import { MeasureEnum } from '../../product/enums/measure.enum';
+
+export interface PaymeFiscalItem {
+  title: string; // Mahsulot nomi
+  price: number; // Tiyinda (masalan: 500000 = 5000 so'm)
+  count: number; // Miqdori
+  code: string; // IKPU kodi (17 xonali satr)
+  units: number; // O'lchov birligi kodi (masalan: 241092)
+  vat_percent: number; // QQS foizi (masalan: 0, 12, 15)
+  package_code: string; // Qadoq kodi
+  discount?: number; // Ixtiyoriy: Chegirma (tiyinda)
+}
 
 @Injectable()
 export class PaymeService {
@@ -127,11 +139,9 @@ export class PaymeService {
   private async checkPerformTransaction(
     params: unknown,
     id: JsonRpcId,
-  ): Promise<PaymeRpcResponse<{ allow: boolean }>> {
+  ): Promise<PaymeRpcResponse> {
     const parsed = this.parseCheckPerformParams(params);
-    if (!parsed) {
-      return this.invalidAccountError(id);
-    }
+    if (!parsed) return this.invalidAccountError(id);
 
     if (!this.isValidAmount(parsed.amount)) {
       return this.error(
@@ -141,18 +151,20 @@ export class PaymeService {
       );
     }
 
-    if (!this.isUuid(parsed.account.order_id)) {
-      return this.invalidAccountError(id);
-    }
-
-    const order: Order | null = await this.orderRepo.findOneBy({
-      id: parsed.account.order_id,
+    // 1. Orderni barcha detallari va bog'liqliklari bilan yuklaymiz
+    const order = await this.orderRepo.findOne({
+      where: { id: parsed.account.order_id },
+      relations: {
+        items: {
+          product: true,
+          order_item_modifiers: true, // Modifikatorlar narxini olish uchun shart
+        },
+      },
     });
 
-    if (!order) {
-      return this.invalidAccountError(id);
-    }
+    if (!order) return this.invalidAccountError(id);
 
+    // 2. Status tekshiruvlari
     if (order.payment_status === PaymentStatusEnum.SUCCESS) {
       return this.error(
         PaymeErrorCodeEnum.CANNOT_PERFORM_OPERATION,
@@ -160,7 +172,6 @@ export class PaymeService {
         id,
       );
     }
-
     if (order.status === OrderStatusEnum.CANCELLED) {
       return this.error(
         PaymeErrorCodeEnum.CANNOT_PERFORM_OPERATION,
@@ -169,14 +180,7 @@ export class PaymeService {
       );
     }
 
-    if (order.payment_method !== OrderPaymentMethodEnum.PAYMENT_ONLINE) {
-      return this.error(
-        PaymeErrorCodeEnum.CANNOT_PERFORM_OPERATION,
-        'Order does not support online payments',
-        id,
-      );
-    }
-
+    // Summani solishtirish
     const orderAmountInTiyin = this.toTiyin(order.total_price);
     if (orderAmountInTiyin !== parsed.amount) {
       return this.error(
@@ -186,7 +190,79 @@ export class PaymeService {
       );
     }
 
-    return { result: { allow: true }, id };
+    // 3. Fiskal elementlarni yig'ish
+    const fiscalItems: PaymeFiscalItem[] = [];
+
+    for (const item of order.items) {
+      // Asosiy mahsulot (masalan: Burger)
+      fiscalItems.push({
+        title: item.product_name,
+        price: this.toTiyin(Number(item.price)),
+        count: item.quantity,
+        code: item.product?.ikpu_code || '00000000000000000',
+        units: this.mapMeasureToPaymeUnits(item.product?.measure_unit), // Shu yerda ishlatdik
+        vat_percent: item.product?.vat || 0,
+        package_code: item.product?.package_code || '0',
+      });
+
+      // PULLIK MODIFIKATORLAR (masalan: Pishloq, Sous)
+      if (item.order_item_modifiers && item.order_item_modifiers.length > 0) {
+        for (const mod of item.order_item_modifiers) {
+          const modPrice = Number(mod.price);
+
+          if (modPrice > 0) {
+            fiscalItems.push({
+              title: `${item.product_name} (${mod.modifier_name})`, // Mijozga tushunarli bo'lishi uchun
+              price: this.toTiyin(modPrice),
+              count: mod.quantity,
+              // Modifikator IKPUsi o'chirilgani uchun mahsulotnikini ishlatamiz
+              code: item.product?.ikpu_code || '00000000000000000',
+              units: 241092, // Modifikatorlar har doim dona (PCS)
+              vat_percent: item.product?.vat || 0,
+              package_code: item.product?.package_code || '0',
+            });
+          }
+        }
+      }
+    }
+
+    // 4. Yetkazib berish (agar bepul bo'lmasa)
+    if (Number(order.delivery_fee) > 0) {
+      fiscalItems.push({
+        title: 'Yetkazib berish xizmati',
+        price: this.toTiyin(Number(order.delivery_fee)),
+        count: 1,
+        code: '10201001001000000',
+        package_code: '1',
+        vat_percent: 0,
+        units: 241092,
+      });
+    }
+
+    return {
+      result: {
+        allow: true,
+        detail: {
+          receipt_type: 0,
+          items: fiscalItems,
+        },
+      },
+      id,
+    };
+  }
+
+  // O'lchov birliklarini Payme kodlariga o'tkazish (masalan: dona = 241092)
+  private mapMeasureToPaymeUnits(measure: MeasureEnum): number {
+    switch (measure) {
+      case MeasureEnum.PCS:
+        return 241092; // Dona
+      case MeasureEnum.KG:
+        return 166; // Kilogramm
+      case MeasureEnum.L:
+        return 112; // Litr
+      default:
+        return 241092; // Agar topilmasa, dona kodi (standart)
+    }
   }
 
   private async createTransaction(

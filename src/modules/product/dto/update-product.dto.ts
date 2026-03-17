@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsEnum,
   IsUUID,
+  Length,
 } from 'class-validator';
 import { MeasureEnum } from '../enums/measure.enum';
 import { Transform, Type } from 'class-transformer';
@@ -23,7 +24,7 @@ export class UpdateProductDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'QQS stavkasi foizda', example: 15 })
+  @ApiPropertyOptional({ description: 'QQS stavkasi foizda', example: 12 })
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
@@ -72,6 +73,29 @@ export class UpdateProductDto {
   @IsOptional()
   @IsUUID()
   category_id?: string;
+
+  // --- YANGI QO'SHILGAN MAYDONLAR ---
+
+  @ApiPropertyOptional({
+    description: '17 xonali IKPU kodi',
+    example: '00702001001000001',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(17, 17, {
+    message: 'IKPU kodi aynan 17 xonadan iborat bo`lishi kerak',
+  })
+  ikpu_code?: string;
+
+  @ApiPropertyOptional({
+    description: 'Qadoq kodi (Package Code)',
+    example: '123456',
+  })
+  @IsOptional()
+  @IsString()
+  package_code?: string;
+
+  // ----------------------------------
 
   @ApiPropertyOptional({
     type: 'string',

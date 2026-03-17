@@ -44,6 +44,12 @@ export class Product {
   @Column({ default: true })
   is_active: boolean; // Mahsulot stop-listda ekanligi (Webhook orqali boshqariladi) [cite: 161]
 
+  @Column({ nullable: true })
+  ikpu_code: string; // 17 xonali IKPU kodi (masalan: "00702001001000001")
+
+  @Column({ nullable: true })
+  package_code: string; // Qadoq kodi (masalan: "123456")
+
   @Column()
   category_id: string;
 
