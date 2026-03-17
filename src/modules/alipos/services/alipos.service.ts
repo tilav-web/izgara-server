@@ -322,7 +322,7 @@ export class AliPosService extends AliPosBaseService {
     );
 
     const comment = [
-      'TEST QILINMOQDA TAYYORLANMASIN',
+      // 'TEST QILINMOQDA TAYYORLANMASIN',
       modifierLines.length ? `Modifierlar:\n${modifierLines.join('\n')}` : null,
     ]
       .filter((value): value is string => Boolean(value))
