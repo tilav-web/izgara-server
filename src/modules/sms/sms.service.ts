@@ -81,7 +81,7 @@ export class SmsService implements OnModuleInit {
           `${this.eskiz_url}/message/sms/send`,
           {
             mobile_phone: phone,
-            message: `${this.eskiz_sms_message}${code}`,
+            message: `${this.eskiz_sms_message} ${code}`,
             from: this.eskiz_provider_name,
           },
           {
