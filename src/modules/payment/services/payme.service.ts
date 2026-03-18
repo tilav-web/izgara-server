@@ -151,6 +151,10 @@ export class PaymeService {
       );
     }
 
+    if (!this.isUuid(parsed.account.order_id)) {
+      return this.invalidAccountError(id);
+    }
+
     // 1. Orderni barcha detallari va bog'liqliklari bilan yuklaymiz
     const order = await this.orderRepo.findOne({
       where: { id: parsed.account.order_id },
