@@ -671,10 +671,18 @@ export class PaymeService {
       );
     }
 
-    const state = this.mapPaymentStatusToPaymeState(
+    let state = this.mapPaymentStatusToPaymeState(
       transaction.status,
       transaction.order?.payment_status,
     );
+    // If transaction was ever performed, Payme expects CANCELLED_FROM_PERFORMED (-2),
+    // even when order payment_status is already CANCELLED.
+    if (
+      transaction.provider_perform_time != null &&
+      state === PaymeTransactionStateEnum.CANCELLED_FROM_CREATED
+    ) {
+      state = PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED;
+    }
 
     return {
       result: {
