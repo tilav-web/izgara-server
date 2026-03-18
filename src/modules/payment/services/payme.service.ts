@@ -732,10 +732,17 @@ export class PaymeService {
     return {
       result: {
         transactions: transactions.map((transaction) => {
-          const state = this.mapPaymentStatusToPaymeState(
+          let state = this.mapPaymentStatusToPaymeState(
             transaction.status,
             transaction.order?.payment_status,
           );
+          // Keep consistency with CheckTransaction when transaction was performed before cancellation.
+          if (
+            transaction.provider_perform_time != null &&
+            state === PaymeTransactionStateEnum.CANCELLED_FROM_CREATED
+          ) {
+            state = PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED;
+          }
 
           return {
             id: transaction.provider_transaction_id,
