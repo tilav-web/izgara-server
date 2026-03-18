@@ -562,11 +562,14 @@ export class PaymeService {
       transaction.status,
       transaction.order?.payment_status,
     );
-    const cancelledState =
+    // Payme expects -2 if the transaction was ever performed, even if order status is already CANCELLED.
+    const wasPerformed =
+      transaction.provider_perform_time != null ||
       initialState === PaymeTransactionStateEnum.PERFORMED ||
-      initialState === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
-        ? PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
-        : PaymeTransactionStateEnum.CANCELLED_FROM_CREATED;
+      initialState === PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED;
+    const cancelledState = wasPerformed
+      ? PaymeTransactionStateEnum.CANCELLED_FROM_PERFORMED
+      : PaymeTransactionStateEnum.CANCELLED_FROM_CREATED;
     const cancelReason = this.resolveCancelReasonByState(cancelledState);
 
     if (transaction.status === PaymentStatusEnum.CANCELLED) {
