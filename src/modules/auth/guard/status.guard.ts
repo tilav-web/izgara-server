@@ -34,6 +34,11 @@ export class AuthStatusGuard implements CanActivate {
         throw new ForbiddenException(
           "Sizning akkauntingiz bloklangan. Support bilan bog'laning.",
         );
+      case AuthStatusEnum.DELETED:
+      case AuthStatusEnum.ACCOUNT_DELETED:
+        throw new ForbiddenException(
+          "Sizning akkauntingiz o'chirilgan. Qayta ro'yxatdan o'ting.",
+        );
       default:
         throw new ForbiddenException("Noma'lum akkount holati");
     }

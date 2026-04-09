@@ -69,7 +69,7 @@ export class OrderService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
-    @InjectQueue('alipos-queue') private readonly aliposQueue: Queue,
+    @InjectQueue('iiko-queue') private readonly iikoQueue: Queue,
     private readonly userService: UserService,
     private readonly productService: ProductService,
     private readonly coinSettingsService: CoinSettingsService,
@@ -131,34 +131,34 @@ export class OrderService {
     };
   }
 
-  private async sendToAlipos(order_id: string) {
-    await this.aliposQueue.add(
-      'send-order-to-alipos',
+  private async sendToIiko(order_id: string) {
+    await this.iikoQueue.add(
+      'send-order-to-iiko',
       { id: order_id },
       {
-        attempts: 5, // Qayta urinishlar sonini biroz oshirish mumkin
+        attempts: 5,
         backoff: {
           type: 'exponential',
-          delay: 10000, // 10 soniyadan boshlab har safar 2 barobar ko'payadi (10s, 20s, 40s...)
+          delay: 10000,
         },
         removeOnComplete: true,
-        removeOnFail: { age: 24 * 3600 }, // Xato bo'lganlarni bazada 24 soat saqlash (tahlil uchun)
+        removeOnFail: { age: 24 * 3600 },
       },
     );
   }
 
-  private async deleteToAlipos(order_id: string) {
-    await this.aliposQueue.add(
-      'delete-order-to-alipos',
+  private async cancelInIiko(order_id: string) {
+    await this.iikoQueue.add(
+      'cancel-order-in-iiko',
       { id: order_id },
       {
-        attempts: 5, // Qayta urinishlar sonini biroz oshirish mumkin
+        attempts: 5,
         backoff: {
           type: 'exponential',
-          delay: 10000, // 10 soniyadan boshlab har safar 2 barobar ko'payadi (10s, 20s, 40s...)
+          delay: 10000,
         },
         removeOnComplete: true,
-        removeOnFail: { age: 24 * 3600 }, // Xato bo'lganlarni bazada 24 soat saqlash (tahlil uchun)
+        removeOnFail: { age: 24 * 3600 },
       },
     );
   }
@@ -210,7 +210,11 @@ export class OrderService {
       payment_method,
       address: dto.address,
       user_id: user.id,
-      cash_amount: total_price,
+      cash_amount:
+        payment_method === OrderPaymentMethodEnum.PAYMENT_CASH ||
+        payment_method === OrderPaymentMethodEnum.PAYMENT_TERMINAL
+          ? total_price
+          : 0,
       total_price,
       items_price,
       delivery_fee,
@@ -557,19 +561,34 @@ export class OrderService {
       return;
     }
 
-    if (
-      wasEligible &&
-      nextStatus === OrderStatusEnum.CANCELLED &&
-      currentEarnedCoins > 0
-    ) {
-      await manager.update(
-        User,
-        { id: order.user_id },
-        {
-          coin_balance: () => `"coin_balance" - ${currentEarnedCoins}`,
-        },
-      );
-      order.earned_coins = 0;
+    if (nextStatus === OrderStatusEnum.CANCELLED) {
+      // Earned coinlarni qaytarib olish (manfiy bo'lmasligini ta'minlash)
+      if (wasEligible && currentEarnedCoins > 0) {
+        await manager.update(
+          User,
+          { id: order.user_id },
+          {
+            coin_balance: () =>
+              `GREATEST("coin_balance" - ${currentEarnedCoins}, 0)`,
+          },
+        );
+        order.earned_coins = 0;
+      }
+
+      // Coin bilan to'langan bo'lsa, ishlatilgan coinlarni qaytarish
+      const usedCoins = Number(order.used_coins || 0);
+      if (
+        order.payment_method === OrderPaymentMethodEnum.PAYMENT_COIN &&
+        usedCoins > 0
+      ) {
+        await manager.update(
+          User,
+          { id: order.user_id },
+          {
+            coin_balance: () => `"coin_balance" + ${usedCoins}`,
+          },
+        );
+      }
     }
   }
 
@@ -708,11 +727,11 @@ export class OrderService {
         dto.status !== OrderStatusEnum.NEW &&
         order.status === OrderStatusEnum.NEW
       ) {
-        await this.sendToAlipos(order.id);
+        await this.sendToIiko(order.id);
       }
 
       if (dto.status === OrderStatusEnum.CANCELLED) {
-        await this.deleteToAlipos(order.id);
+        await this.cancelInIiko(order.id);
       }
 
       let targetPaymentStatus: PaymentStatusEnum | undefined;

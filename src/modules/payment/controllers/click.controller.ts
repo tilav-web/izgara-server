@@ -52,8 +52,10 @@ export class ClickController {
     const ip = this.resolveClientIp(req);
     const allowedIps = this.getAllowedIps();
 
-    // If whitelist is not configured, allow all IPs.
     if (allowedIps === null) {
+      this.logger.warn(
+        'CLICK_ALLOWED_IPS is not configured — all IPs are allowed. Set CLICK_ALLOWED_IPS in .env for production!',
+      );
       return true;
     }
 

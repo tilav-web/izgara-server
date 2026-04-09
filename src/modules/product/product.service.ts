@@ -103,6 +103,8 @@ export class ProductService {
       // Modifierlar narxini hisoblaymiz
       if (item.modifiers && item.modifiers.length > 0) {
         const seenModifierIds = new Set<string>();
+        const groupModifierCounts = new Map<string, number>();
+
         const modifiersSum = item.modifiers.reduce((mAcc, mDto) => {
           if (seenModifierIds.has(mDto.modifier_id)) {
             throw new BadRequestException(
@@ -130,9 +132,40 @@ export class ProductService {
             );
           }
 
+          if (mDto.quantity > mod.max_quantity) {
+            throw new BadRequestException(
+              `"${mod.name}" modifierdan maksimum ${mod.max_quantity} ta tanlash mumkin`,
+            );
+          }
+
+          // Guruh bo'yicha tanlangan modifierlar sonini hisoblash
+          if (mod.group) {
+            const currentCount =
+              groupModifierCounts.get(mod.group_id) || 0;
+            groupModifierCounts.set(mod.group_id, currentCount + 1);
+          }
+
           // Modifier narxi * DTO dagi modifier quantity
           return mAcc + Number(mod.price) * mDto.quantity;
         }, 0);
+
+        // ModifierGroup min/max tekshiruvi
+        for (const [groupId, count] of groupModifierCounts) {
+          const groupMod = modifiers.find((m) => m.group_id === groupId);
+          const group = groupMod?.group;
+          if (group) {
+            if (group.min_selected_amount > 0 && count < group.min_selected_amount) {
+              throw new BadRequestException(
+                `"${group.name}" guruhidan kamida ${group.min_selected_amount} ta modifier tanlash kerak`,
+              );
+            }
+            if (group.max_selected_amount > 0 && count > group.max_selected_amount) {
+              throw new BadRequestException(
+                `"${group.name}" guruhidan ko'pi bilan ${group.max_selected_amount} ta modifier tanlash mumkin`,
+              );
+            }
+          }
+        }
 
         currentItemPrice += modifiersSum;
       }
@@ -343,6 +376,8 @@ export class ProductService {
       // Agar modifierlar bo'lsa, ularni ham entity ko'rinishida shakllantiramiz
       if (d.modifiers && d.modifiers.length > 0) {
         const seenModifierIds = new Set<string>();
+        const groupModifierCounts = new Map<string, number>();
+
         orderItem.order_item_modifiers = d.modifiers.map((mDto) => {
           if (seenModifierIds.has(mDto.modifier_id)) {
             throw new BadRequestException(
@@ -369,6 +404,18 @@ export class ProductService {
             );
           }
 
+          if (mDto.quantity > mod.max_quantity) {
+            throw new BadRequestException(
+              `"${mod.name}" modifierdan maksimum ${mod.max_quantity} ta tanlash mumkin`,
+            );
+          }
+
+          // Guruh bo'yicha tanlangan modifierlar sonini hisoblash
+          if (mod.group) {
+            const currentCount = groupModifierCounts.get(mod.group_id) || 0;
+            groupModifierCounts.set(mod.group_id, currentCount + 1);
+          }
+
           const orderItemModifier = new OrderItemModifier();
           orderItemModifier.modifier_id = mod.id;
           orderItemModifier.modifier_name = mod.name;
@@ -377,6 +424,24 @@ export class ProductService {
 
           return orderItemModifier;
         });
+
+        // ModifierGroup min/max tekshiruvi
+        for (const [groupId, count] of groupModifierCounts) {
+          const groupMod = modifiers.find((m) => m.group_id === groupId);
+          const group = groupMod?.group;
+          if (group) {
+            if (group.min_selected_amount > 0 && count < group.min_selected_amount) {
+              throw new BadRequestException(
+                `"${group.name}" guruhidan kamida ${group.min_selected_amount} ta modifier tanlash kerak`,
+              );
+            }
+            if (group.max_selected_amount > 0 && count > group.max_selected_amount) {
+              throw new BadRequestException(
+                `"${group.name}" guruhidan ko'pi bilan ${group.max_selected_amount} ta modifier tanlash mumkin`,
+              );
+            }
+          }
+        }
       }
 
       return orderItem;

@@ -123,12 +123,15 @@ export class PaymeController {
     return new Set(parsed);
   }
 
-  private extractRpcId(body: unknown): string | null {
+  private extractRpcId(body: unknown): string | number | null {
     if (typeof body !== 'object' || body === null) {
       return null;
     }
 
-    const candidate = (body as { order_id?: unknown }).order_id;
-    return typeof candidate === 'string' ? candidate : null;
+    const candidate = (body as { id?: unknown }).id;
+    if (typeof candidate === 'string' || typeof candidate === 'number') {
+      return candidate;
+    }
+    return null;
   }
 }

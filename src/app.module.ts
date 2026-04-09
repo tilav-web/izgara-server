@@ -9,6 +9,7 @@ import { ProductModule } from './modules/product/product.module';
 import { ModifierModule } from './modules/modifier/modifier.module';
 import { ModifierGroupModule } from './modules/modifierGroup/modifier-group.module';
 import { AliPosModule } from './modules/alipos/alipos.module';
+import { IikoModule } from './modules/iiko/iiko.module';
 import { FileModule } from './modules/file/file.module';
 import { LocationModule } from './modules/location/location.module';
 import { DeliverySettingsModule } from './modules/deliverySettings/delivery-settings.module';
@@ -65,6 +66,7 @@ import { SmsModule } from './modules/sms/sms.module';
     RedisModule,
     SeedModule,
     AliPosModule,
+    IikoModule,
     AuthModule,
     CategoryModule,
     ProductModule,

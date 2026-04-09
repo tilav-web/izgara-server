@@ -1,16 +1,16 @@
 import { BullModule } from '@nestjs/bullmq';
 import { forwardRef, Module } from '@nestjs/common';
-import { AliPosProcessor } from './processors/alipos.processor';
-import { AliPosModule } from '../alipos/alipos.module';
+import { IikoProcessor } from './processors/iiko.processor';
+import { IikoModule } from '../iiko/iiko.module';
 
 @Module({
   imports: [
     BullModule.registerQueue({
-      name: 'alipos-queue',
+      name: 'iiko-queue',
     }),
-    forwardRef(() => AliPosModule),
+    forwardRef(() => IikoModule),
   ],
-  providers: [AliPosProcessor],
+  providers: [IikoProcessor],
   exports: [BullModule],
 })
 export class JobsModule {}
