@@ -20,6 +20,8 @@ import { MeasureEnum } from '../../product/enums/measure.enum';
 import { OrderPaymentMethodEnum } from '../../order/enums/order-payment-status.enum';
 import { OrderTypeEnum } from '../../order/enums/order-type.enum';
 import { OrderStatusEnum } from '../../order/enums/order-status.enum';
+import { PaymentProviderEnum } from '../../payment/enums/payment-provider.enum';
+import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
 import {
   IikoCommandResponse,
   IikoCreateDeliveryResponse,
@@ -259,6 +261,7 @@ export class IikoService extends IikoBaseService {
             modifier: true,
           },
         },
+        transactions: true,
       },
     });
 
@@ -534,31 +537,39 @@ export class IikoService extends IikoBaseService {
       case OrderPaymentMethodEnum.PAYMENT_TERMINAL:
         return {
           paymentTypeKind: 'Card',
-          paymentTypeId:
-            this.configService.get<string>('IIKO_PAYMENT_TERMINAL') ||
-            this.getRequiredPaymentId('IIKO_PAYMENT_CARD'),
+          paymentTypeId: this.getRequiredPaymentId('IIKO_PAYMENT_CARD'),
           sum: total,
           isProcessedExternally: false,
         };
       case OrderPaymentMethodEnum.PAYMENT_ONLINE:
         return {
-          paymentTypeKind: 'External',
-          paymentTypeId: this.getRequiredPaymentId('IIKO_PAYMENT_ONLINE'),
+          paymentTypeKind: 'Card',
+          paymentTypeId: this.resolveOnlinePaymentId(order),
           sum: total,
           isProcessedExternally: true,
         };
       case OrderPaymentMethodEnum.PAYMENT_COIN:
         return {
-          paymentTypeKind: 'External',
-          paymentTypeId:
-            this.configService.get<string>('IIKO_PAYMENT_COIN') ||
-            this.getRequiredPaymentId('IIKO_PAYMENT_ONLINE'),
+          paymentTypeKind: 'Card',
+          paymentTypeId: this.getRequiredPaymentId('IIKO_PAYMENT_COIN'),
           sum: total,
           isProcessedExternally: true,
         };
       default:
         throw new BadRequestException('Nomalum tolov turi');
     }
+  }
+
+  private resolveOnlinePaymentId(order: Order): string {
+    const successTransaction = (order.transactions || []).find(
+      (t) => t.status === PaymentStatusEnum.SUCCESS,
+    );
+
+    if (successTransaction?.provider === PaymentProviderEnum.PAYME) {
+      return this.getRequiredPaymentId('IIKO_PAYMENT_PAYME');
+    }
+
+    return this.getRequiredPaymentId('IIKO_PAYMENT_CLICK');
   }
 
   private getRequiredPaymentId(key: string) {
