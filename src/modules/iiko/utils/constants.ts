@@ -17,6 +17,10 @@ export const IIKO_API_ENDPOINTS = {
   NOMENCLATURE: {
     findAll: '/api/1/nomenclature',
   },
+  EXTERNAL_MENUS: {
+    findAll: '/api/2/menu',
+    findById: '/api/2/menu/by_id',
+  },
   PAYMENT_TYPES: {
     findAll: '/api/1/payment_types',
   },

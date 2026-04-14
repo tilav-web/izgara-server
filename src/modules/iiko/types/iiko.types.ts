@@ -111,6 +111,74 @@ export interface IikoNomenclatureResponse {
   revision: number;
 }
 
+// ── External Menu types ──
+
+export interface IikoExternalMenusResponse {
+  correlationId: string;
+  externalMenus: Array<{ id: string; name: string }>;
+}
+
+export interface IikoExternalMenuModifierGroup {
+  itemGroupId?: string | null;
+  name: string;
+  description?: string;
+  restrictions?: {
+    minQuantity?: number;
+    maxQuantity?: number;
+    freeQuantity?: number;
+    byDefault?: number;
+  } | null;
+  canBeDivided?: boolean;
+  childModifiersHaveMinMaxRestrictions?: boolean;
+  items: IikoExternalMenuModifierItem[];
+}
+
+export interface IikoExternalMenuModifierItem {
+  itemId: string;
+  name: string;
+  description?: string;
+  restrictions?: Array<{
+    minQuantity?: number;
+    maxQuantity?: number;
+    freeQuantity?: number;
+    byDefault?: number;
+  }> | null;
+  prices: Array<{ price: number }>;
+  portionWeightGrams?: number;
+}
+
+export interface IikoExternalMenuItemSize {
+  sizeId?: string | null;
+  sizeName?: string | null;
+  isDefault?: boolean;
+  portionWeightGrams?: number;
+  prices: Array<{ price: number }>;
+  itemModifierGroups: IikoExternalMenuModifierGroup[];
+}
+
+export interface IikoExternalMenuItem {
+  itemId: string;
+  name: string;
+  description?: string;
+  itemSizes: IikoExternalMenuItemSize[];
+  measureUnit?: string;
+  orderItemType?: string;
+}
+
+export interface IikoExternalMenuCategory {
+  id?: string | null;
+  name: string;
+  description?: string;
+  buttonImageUrl?: string | null;
+  items: IikoExternalMenuItem[];
+}
+
+export interface IikoExternalMenuResponse {
+  id: number;
+  name: string;
+  itemCategories: IikoExternalMenuCategory[];
+}
+
 export type IikoDeliveryStatus =
   | 'Unconfirmed'
   | 'WaitCooking'

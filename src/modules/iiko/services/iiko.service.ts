@@ -25,11 +25,10 @@ import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
 import {
   IikoCommandResponse,
   IikoCreateDeliveryResponse,
-  IikoGroupModifierInfo,
-  IikoNomenclatureGroup,
-  IikoNomenclatureProduct,
-  IikoNomenclatureResponse,
-  IikoProductCategory,
+  IikoExternalMenuCategory,
+  IikoExternalMenuItem,
+  IikoExternalMenuResponse,
+  IikoExternalMenusResponse,
   IikoStopListsResponse,
   IikoWebhookEvent,
 } from '../types/iiko.types';
@@ -68,122 +67,154 @@ export class IikoService extends IikoBaseService {
 
   async updateAllData() {
     const organizationId = await this.getOrganizationId();
+
+    // 1. External menu ID ni olish
+    const menusData = await this.request<
+      Record<string, never>,
+      IikoExternalMenusResponse
+    >(IIKO_API_ENDPOINTS.EXTERNAL_MENUS.findAll, {});
+
+    const externalMenuId =
+      this.configService.get<string>('IIKO_EXTERNAL_MENU_ID') ||
+      menusData.externalMenus?.[0]?.id;
+
+    if (!externalMenuId) {
+      throw new BadGatewayException('IIKO da external menu topilmadi');
+    }
+
+    // 2. External menu ma'lumotlarini olish
     const data = await this.request<
-      { organizationId: string; startRevision: number },
-      IikoNomenclatureResponse
-    >(IIKO_API_ENDPOINTS.NOMENCLATURE.findAll, {
-      organizationId,
-      startRevision: 0,
+      { externalMenuId: string; organizationIds: string[]; version: number },
+      IikoExternalMenuResponse
+    >(IIKO_API_ENDPOINTS.EXTERNAL_MENUS.findById, {
+      externalMenuId,
+      organizationIds: [organizationId],
+      version: 2,
     });
 
-    const groupMap = new Map(data.groups.map((group) => [group.id, group]));
-    const productCategoryMap = new Map(
-      data.productCategories.map((category) => [category.id, category]),
-    );
-    const productMap = new Map(
-      data.products.map((product) => [product.id, product]),
-    );
+    if (!data.itemCategories?.length) {
+      throw new BadGatewayException('IIKO external menu bo\'sh');
+    }
 
-    const categoriesById = this.buildCategories(
-      data.groups,
-      data.productCategories,
-    );
-    const productsToUpsert = data.products
-      .filter((item) => this.isMenuProduct(item))
-      .map((item) => {
-        const categoryId = this.resolveCategoryId(
-          item,
-          groupMap,
-          productCategoryMap,
-        );
-        if (!categoryId) return null;
+    // 3. Kategoriyalar, mahsulotlar, modifier guruhlar va modifierlarni yig'ish
+    const categoriesToUpsert: Array<{
+      id: string;
+      name: string;
+      sort_order: number;
+    }> = [];
+    const productsToUpsert: Array<{
+      id: string;
+      category_id: string;
+      name: string;
+      description?: string;
+      price: number;
+      vat: number;
+      measure: number;
+      measure_unit: MeasureEnum;
+      sort_order: number;
+      is_active: boolean;
+    }> = [];
+    const modifierGroupsToUpsert: Array<{
+      id: string;
+      name: string;
+      sort_order: number;
+      min_selected_amount: number;
+      max_selected_amount: number;
+      product_id: string;
+    }> = [];
+    const modifiersToUpsert: Array<{
+      id: string;
+      name: string;
+      price: number;
+      sort_order: number;
+      max_quantity: number;
+      is_active: boolean;
+      group_id: string;
+    }> = [];
 
-        if (!categoriesById.has(categoryId)) {
-          categoriesById.set(categoryId, {
-            id: categoryId,
-            name:
-              groupMap.get(categoryId)?.name ||
-              productCategoryMap.get(categoryId)?.name ||
-              'IIKO',
-            sort_order: groupMap.get(categoryId)?.order || 0,
-          });
-        }
+    for (let catIdx = 0; catIdx < data.itemCategories.length; catIdx++) {
+      const category = data.itemCategories[catIdx];
+      const categoryId = category.id || `ext-cat-${catIdx}`;
 
-        return {
-          id: item.id,
+      categoriesToUpsert.push({
+        id: categoryId,
+        name: category.name,
+        sort_order: catIdx,
+      });
+
+      for (let itemIdx = 0; itemIdx < category.items.length; itemIdx++) {
+        const item = category.items[itemIdx];
+        const size = item.itemSizes?.[0];
+        const price = size?.prices?.[0]?.price || 0;
+
+        productsToUpsert.push({
+          id: item.itemId,
           category_id: categoryId,
           name: item.name,
           description: item.description || undefined,
-          price: this.getProductPrice(item),
+          price,
           vat: 0,
-          measure: Number(item.weight || 0),
+          measure: Number(size?.portionWeightGrams || 0),
           measure_unit: this.mapMeasureUnit(item.measureUnit),
-          sort_order: Number(item.order || 0),
+          sort_order: itemIdx,
           is_active: true,
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+        });
 
-    const modifierGroupsById = new Map<
-      string,
-      {
-        id: string;
-        name: string;
-        sort_order: number;
-        min_selected_amount: number;
-        max_selected_amount: number;
-        product_id: string;
-      }
-    >();
-    const modifiersById = new Map<
-      string,
-      {
-        id: string;
-        name: string;
-        price: number;
-        sort_order: number;
-        max_quantity: number;
-        is_active: boolean;
-        group_id: string;
-      }
-    >();
+        // Modifier guruhlarni yig'ish
+        for (const modGroup of size?.itemModifierGroups || []) {
+          if (!modGroup.itemGroupId || !modGroup.items?.length) continue;
 
-    for (const item of data.products.filter((product) =>
-      this.isMenuProduct(product),
-    )) {
-      for (const group of item.groupModifiers || []) {
-        const groupInfo = groupMap.get(group.id);
-        if (!modifierGroupsById.has(group.id)) {
-          modifierGroupsById.set(group.id, {
-            id: group.id,
-            name: groupInfo?.name || `IIKO modifier group ${group.id}`,
-            sort_order: Number(groupInfo?.order || 0),
-            min_selected_amount: Number(group.minAmount || 0),
-            max_selected_amount: Number(group.maxAmount || 1),
-            product_id: item.id,
+          const groupId = modGroup.itemGroupId;
+          modifierGroupsToUpsert.push({
+            id: groupId,
+            name: modGroup.name || 'Modifierlar',
+            sort_order: 0,
+            min_selected_amount: Number(
+              modGroup.restrictions?.minQuantity || 0,
+            ),
+            max_selected_amount: Number(
+              modGroup.restrictions?.maxQuantity || modGroup.items.length,
+            ),
+            product_id: item.itemId,
           });
-        }
 
-        this.collectGroupModifiers(group, productMap, modifiersById);
+          for (const mod of modGroup.items) {
+            const modPrice = mod.prices?.[0]?.price || 0;
+            const maxQty =
+              mod.restrictions?.[0]?.maxQuantity ||
+              modGroup.restrictions?.maxQuantity ||
+              1;
+
+            modifiersToUpsert.push({
+              id: mod.itemId,
+              name: mod.name,
+              price: modPrice,
+              sort_order: 0,
+              max_quantity: Number(maxQty),
+              is_active: true,
+              group_id: groupId,
+            });
+          }
+        }
       }
     }
 
-    await this.categoryService.upsertMany([...categoriesById.values()]);
+    // 4. Bazaga yozish
+    await this.categoryService.upsertMany(categoriesToUpsert);
 
     if (productsToUpsert.length > 0) {
       await this.productRepository.upsert(productsToUpsert, ['id']);
     }
 
-    const modifierGroupsToUpsert = [...modifierGroupsById.values()];
     if (modifierGroupsToUpsert.length > 0) {
       await this.modifierGroupRepository.upsert(modifierGroupsToUpsert, ['id']);
     }
 
-    const modifiersToUpsert = [...modifiersById.values()];
     if (modifiersToUpsert.length > 0) {
       await this.modifierRepository.upsert(modifiersToUpsert, ['id']);
     }
 
+    // 5. IIKO dan o'chirilgan elementlarni bazadan tozalash
     await this.cleanupRemovedModifiers(
       productsToUpsert.map((item) => item.id),
       modifierGroupsToUpsert.map((item) => item.id),
@@ -191,9 +222,9 @@ export class IikoService extends IikoBaseService {
     );
 
     return {
-      message: 'IIKO menu malumotlari bazaga yozildi',
-      revision: data.revision,
-      categories: categoriesById.size,
+      message: 'IIKO external menu bazaga yozildi',
+      menu: data.name,
+      categories: categoriesToUpsert.length,
       products: productsToUpsert.length,
       modifier_groups: modifierGroupsToUpsert.length,
       modifiers: modifiersToUpsert.length,
@@ -372,99 +403,6 @@ export class IikoService extends IikoBaseService {
     };
   }
 
-  private buildCategories(
-    groups: IikoNomenclatureGroup[],
-    productCategories: IikoProductCategory[],
-  ) {
-    const categories = new Map<
-      string,
-      { id: string; name: string; sort_order: number }
-    >();
-
-    for (const group of groups) {
-      if (
-        group.isDeleted ||
-        group.isGroupModifier ||
-        group.isIncludedInMenu === false
-      ) {
-        continue;
-      }
-
-      categories.set(group.id, {
-        id: group.id,
-        name: group.name,
-        sort_order: Number(group.order || 0),
-      });
-    }
-
-    for (const category of productCategories) {
-      if (category.isDeleted || categories.has(category.id)) continue;
-      categories.set(category.id, {
-        id: category.id,
-        name: category.name,
-        sort_order: 0,
-      });
-    }
-
-    return categories;
-  }
-
-  private isMenuProduct(product: IikoNomenclatureProduct) {
-    return !product.isDeleted && product.type !== 'modifier';
-  }
-
-  private resolveCategoryId(
-    item: IikoNomenclatureProduct,
-    groupMap: Map<string, IikoNomenclatureGroup>,
-    productCategoryMap: Map<string, IikoProductCategory>,
-  ) {
-    const candidates = [
-      item.parentGroup,
-      item.groupId,
-      item.productCategoryId,
-    ].filter((id): id is string => Boolean(id));
-
-    return (
-      candidates.find((id) => groupMap.has(id) || productCategoryMap.has(id)) ||
-      candidates[0] ||
-      null
-    );
-  }
-
-  private collectGroupModifiers(
-    group: IikoGroupModifierInfo,
-    productMap: Map<string, IikoNomenclatureProduct>,
-    modifiersById: Map<
-      string,
-      {
-        id: string;
-        name: string;
-        price: number;
-        sort_order: number;
-        max_quantity: number;
-        is_active: boolean;
-        group_id: string;
-      }
-    >,
-  ) {
-    for (const child of group.childModifiers || []) {
-      if (modifiersById.has(child.id)) continue;
-
-      const modifierProduct = productMap.get(child.id);
-      if (!modifierProduct || modifierProduct.isDeleted) continue;
-
-      modifiersById.set(child.id, {
-        id: child.id,
-        name: modifierProduct.name,
-        price: this.getProductPrice(modifierProduct),
-        sort_order: Number(modifierProduct.order || 0),
-        max_quantity: Number(child.maxAmount || group.maxAmount || 1),
-        is_active: true,
-        group_id: group.id,
-      });
-    }
-  }
-
   private async cleanupRemovedModifiers(
     productIds: string[],
     groupIds: string[],
@@ -503,13 +441,6 @@ export class IikoService extends IikoBaseService {
     }
 
     await deleteGroupQb.execute();
-  }
-
-  private getProductPrice(product: IikoNomenclatureProduct) {
-    const sizePrice =
-      product.sizePrices?.find((item) => item.price?.isIncludedInMenu) ||
-      product.sizePrices?.[0];
-    return Number(sizePrice?.price?.currentPrice || 0);
   }
 
   private mapMeasureUnit(measureUnit?: string | null) {
