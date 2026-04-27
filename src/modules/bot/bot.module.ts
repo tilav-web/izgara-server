@@ -1,5 +1,5 @@
 import { ConfigModule } from '@nestjs/config';
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../user/user.entity';
 import { Auth } from '../auth/auth.entity';
@@ -10,12 +10,14 @@ import { ContactEvent } from './events/contact.event';
 import { OrderBotService } from './services/order-bot.service';
 import { Order } from '../order/schemas/order.entity';
 import { DeliveryAssignmentsModule } from '../deliveryAssignments/delivery-assignments.module';
+import { OrderModule } from '../order/order.module';
 
 @Module({
   imports: [
     ConfigModule,
     TypeOrmModule.forFeature([User, Auth, Order]),
     DeliveryAssignmentsModule,
+    forwardRef(() => OrderModule),
   ],
   controllers: [BotController],
   providers: [BotService, StartCommand, ContactEvent, OrderBotService],

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Order } from './schemas/order.entity';
 import { OrderItem } from './schemas/order-item.entity';
@@ -35,7 +35,7 @@ import { DeliveryAssignmentsModule } from '../deliveryAssignments/delivery-assig
     DeliverySettingsModule,
     JobsModule,
     SocketModule,
-    BotModule,
+    forwardRef(() => BotModule),
     DeliveryAssignmentsModule,
   ],
   controllers: [OrdersController],

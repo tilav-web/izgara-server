@@ -1,4 +1,10 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
 import { BotService } from '../bot.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Auth } from '../../auth/auth.entity';
@@ -8,8 +14,10 @@ import { AuthRoleEnum } from '../../auth/enums/auth-role.enum';
 import { AuthStatusEnum } from '../../auth/enums/status.enum';
 import { TelegramStatusEnum } from '../../auth/guard/telegram-status.enum';
 import { OrderPaymentMethodEnum } from '../../order/enums/order-payment-status.enum';
+import { OrderStatusEnum } from '../../order/enums/order-status.enum';
 import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
 import { DeliveryAssignmentsService } from '../../deliveryAssignments/delivery_assignments.service';
+import { OrderService } from '../../order/services/order.service';
 
 @Injectable()
 export class OrderBotService implements OnModuleInit {
@@ -19,6 +27,8 @@ export class OrderBotService implements OnModuleInit {
   constructor(
     private readonly botService: BotService,
     private readonly deliveryAssignmentsService: DeliveryAssignmentsService,
+    @Inject(forwardRef(() => OrderService))
+    private readonly orderService: OrderService,
     @InjectRepository(Auth)
     private readonly authRepository: Repository<Auth>,
     @InjectRepository(Order)
@@ -113,6 +123,99 @@ export class OrderBotService implements OnModuleInit {
             return;
           }
         } catch (error) {
+          await ctx.answerCallbackQuery({
+            text:
+              error instanceof Error
+                ? error.message.slice(0, 180)
+                : 'Amal bajarilmadi.',
+            show_alert: true,
+          });
+        }
+      },
+    );
+
+    bot.callbackQuery(
+      /^superadmin:(confirm|cancel):([a-zA-Z0-9-]+)$/,
+      async (ctx) => {
+        const telegram_id = ctx.from?.id ? String(ctx.from.id) : '';
+        const action = ctx.match[1];
+        const order_id = ctx.match[2];
+
+        if (!telegram_id || !order_id) {
+          await ctx.answerCallbackQuery({
+            text: "Ma'lumotlar topilmadi.",
+            show_alert: true,
+          });
+          return;
+        }
+
+        const admin = await this.authRepository.findOne({
+          where: {
+            telegram_id,
+            role: AuthRoleEnum.SUPERADMIN,
+            status: AuthStatusEnum.ACTIVE,
+            telegram_status: TelegramStatusEnum.ACTIVE,
+          },
+        });
+
+        if (!admin) {
+          await ctx.answerCallbackQuery({
+            text: 'Sizda bu amalni bajarish huquqi yoq.',
+            show_alert: true,
+          });
+          return;
+        }
+
+        try {
+          const order = await this.orderRepository.findOne({
+            where: { id: order_id },
+          });
+
+          if (!order) {
+            await ctx.answerCallbackQuery({
+              text: 'Buyurtma topilmadi.',
+              show_alert: true,
+            });
+            return;
+          }
+
+          if (order.status !== OrderStatusEnum.NEW) {
+            await ctx.editMessageReplyMarkup({ reply_markup: undefined });
+            await ctx.answerCallbackQuery({
+              text: `Buyurtma allaqachon "${order.status}" holatida.`,
+              show_alert: true,
+            });
+            return;
+          }
+
+          if (action === 'confirm') {
+            await this.orderService.updateOrderForAdmin(order_id, {
+              status: OrderStatusEnum.IN_PROGRESS,
+            });
+
+            await ctx.editMessageReplyMarkup({ reply_markup: undefined });
+            await ctx.answerCallbackQuery({
+              text: 'Buyurtma tasdiqlandi va jarayonga otkazildi.',
+            });
+            return;
+          }
+
+          if (action === 'cancel') {
+            await this.orderService.updateOrderForAdmin(order_id, {
+              status: OrderStatusEnum.CANCELLED,
+            });
+
+            await ctx.editMessageReplyMarkup({ reply_markup: undefined });
+            await ctx.answerCallbackQuery({
+              text: 'Buyurtma bekor qilindi.',
+            });
+            return;
+          }
+        } catch (error) {
+          this.logger.error(
+            `Superadmin callback failed (action=${action}, order_id=${order_id})`,
+            this.formatUnknownError(error),
+          );
           await ctx.answerCallbackQuery({
             text:
               error instanceof Error
@@ -257,7 +360,10 @@ export class OrderBotService implements OnModuleInit {
     }
   }
 
-  private buildOrderMessage(order: Order): string {
+  private buildOrderMessage(
+    order: Order,
+    title = '🛵 <b>Yangi tayyor buyurtma:</b>',
+  ): string {
     const totalPrice = Number(order.total_price || 0).toFixed(2);
     const itemsPrice = Number(order.items_price || 0).toFixed(2);
     const deliveryFee = Number(order.delivery_fee || 0).toFixed(2);
@@ -288,7 +394,7 @@ export class OrderBotService implements OnModuleInit {
     });
 
     return [
-      `🛵 <b>Yangi tayyor buyurtma:</b> #${this.escapeHtml(order.order_number || order.id)}`,
+      `${title} #${this.escapeHtml(order.order_number || order.id)}`,
       `📞 <b>Mijoz tel:</b> ${this.escapeHtml(order.customer_phone || '-')}`,
       `🏠 <b>Manzil:</b> ${this.escapeHtml(order.address || '-')}`,
       `💳 <b>To'lov usuli:</b> <i>${this.escapeHtml(this.formatPaymentMethod(order.payment_method))}</i>`,
@@ -388,6 +494,81 @@ export class OrderBotService implements OnModuleInit {
         console.error(
           `Failed to send order notification to delivery auth_id=${delivery.id}`,
           error,
+        );
+      }
+    }
+  }
+
+  async sendOrderNotificationToSuperadmin(order: Order) {
+    const bot = this.botService.getBot();
+
+    const freshOrder = await this.orderRepository.findOne({
+      where: { id: order.id },
+      relations: {
+        items: {
+          order_item_modifiers: true,
+        },
+      },
+    });
+
+    if (!freshOrder) {
+      return;
+    }
+
+    const admins = await this.authRepository.find({
+      where: {
+        role: AuthRoleEnum.SUPERADMIN,
+        status: AuthStatusEnum.ACTIVE,
+        telegram_status: TelegramStatusEnum.ACTIVE,
+      },
+      select: {
+        id: true,
+        telegram_id: true,
+      },
+    });
+
+    if (!admins.length) {
+      return;
+    }
+
+    const text = this.buildOrderMessage(
+      freshOrder,
+      '🆕 <b>Yangi buyurtma:</b>',
+    );
+
+    for (const admin of admins) {
+      if (!admin.telegram_id) continue;
+
+      try {
+        await this.callTelegramWithRetry({
+          fn: () =>
+            bot.api.sendMessage(admin.telegram_id!, text, {
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: '✅ Tasdiqlash',
+                      callback_data: `superadmin:confirm:${freshOrder.id}`,
+                    },
+                    {
+                      text: '❌ Bekor qilish',
+                      callback_data: `superadmin:cancel:${freshOrder.id}`,
+                    },
+                  ],
+                ],
+              },
+              link_preview_options: {
+                is_disabled: true,
+              },
+            }),
+          label: 'sendMessage(superadmin)',
+          authId: admin.id,
+        });
+      } catch (error) {
+        this.logger.error(
+          `Failed to send order notification to superadmin auth_id=${admin.id}`,
+          this.formatUnknownError(error),
         );
       }
     }

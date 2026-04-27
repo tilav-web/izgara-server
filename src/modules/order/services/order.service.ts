@@ -1,7 +1,10 @@
 import {
   BadRequestException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -50,6 +53,7 @@ type CreateOrderContext = {
 
 @Injectable()
 export class OrderService {
+  private readonly logger = new Logger(OrderService.name);
   private readonly cancelRestrictionMessageByStatus: Record<
     OrderStatusEnum,
     string
@@ -78,6 +82,7 @@ export class OrderService {
     private readonly deliverySettingsService: DeliverySettingsService,
     private readonly orderGateway: OrderGateway,
     private readonly orderNotificationRedisService: OrderNotificationRedisService,
+    @Inject(forwardRef(() => OrderBotService))
     private readonly orderBotService: OrderBotService,
     private readonly deliveryAssignmentsService: DeliveryAssignmentsService,
   ) {}
@@ -186,6 +191,15 @@ export class OrderService {
       status: OrderNotificationStatusEnum.SUCCESS,
       roles: [AuthRoleEnum.SUPERADMIN],
     });
+
+    try {
+      await this.orderBotService.sendOrderNotificationToSuperadmin(order);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send superadmin telegram notification for order ${order.id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 
   private async createAndSaveOrder({
