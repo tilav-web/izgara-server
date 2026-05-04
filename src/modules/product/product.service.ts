@@ -140,8 +140,7 @@ export class ProductService {
 
           // Guruh bo'yicha tanlangan modifierlar sonini hisoblash
           if (mod.group) {
-            const currentCount =
-              groupModifierCounts.get(mod.group_id) || 0;
+            const currentCount = groupModifierCounts.get(mod.group_id) || 0;
             groupModifierCounts.set(mod.group_id, currentCount + 1);
           }
 
@@ -154,12 +153,18 @@ export class ProductService {
           const groupMod = modifiers.find((m) => m.group_id === groupId);
           const group = groupMod?.group;
           if (group) {
-            if (group.min_selected_amount > 0 && count < group.min_selected_amount) {
+            if (
+              group.min_selected_amount > 0 &&
+              count < group.min_selected_amount
+            ) {
               throw new BadRequestException(
                 `"${group.name}" guruhidan kamida ${group.min_selected_amount} ta modifier tanlash kerak`,
               );
             }
-            if (group.max_selected_amount > 0 && count > group.max_selected_amount) {
+            if (
+              group.max_selected_amount > 0 &&
+              count > group.max_selected_amount
+            ) {
               throw new BadRequestException(
                 `"${group.name}" guruhidan ko'pi bilan ${group.max_selected_amount} ta modifier tanlash mumkin`,
               );
@@ -193,7 +198,9 @@ export class ProductService {
 
     const qb = this.repository
       .createQueryBuilder('product')
-      .leftJoin('product.category', 'category');
+      .leftJoin('product.category', 'category')
+      .leftJoinAndSelect('product.modifier_groups', 'modifier_groups')
+      .leftJoinAndSelect('modifier_groups.modifiers', 'modifiers');
 
     if (category_id) {
       qb.andWhere('product.category_id = :category_id', { category_id });
@@ -430,12 +437,18 @@ export class ProductService {
           const groupMod = modifiers.find((m) => m.group_id === groupId);
           const group = groupMod?.group;
           if (group) {
-            if (group.min_selected_amount > 0 && count < group.min_selected_amount) {
+            if (
+              group.min_selected_amount > 0 &&
+              count < group.min_selected_amount
+            ) {
               throw new BadRequestException(
                 `"${group.name}" guruhidan kamida ${group.min_selected_amount} ta modifier tanlash kerak`,
               );
             }
-            if (group.max_selected_amount > 0 && count > group.max_selected_amount) {
+            if (
+              group.max_selected_amount > 0 &&
+              count > group.max_selected_amount
+            ) {
               throw new BadRequestException(
                 `"${group.name}" guruhidan ko'pi bilan ${group.max_selected_amount} ta modifier tanlash mumkin`,
               );
