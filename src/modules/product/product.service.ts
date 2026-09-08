@@ -339,6 +339,24 @@ export class ProductService {
     return this.withImageUrl(result);
   }
 
+  async deleteImage(id: string) {
+    if (!id) {
+      throw new BadRequestException('Mahsulot id sini yuborish majburiy!');
+    }
+
+    const product = await this.repository.findOne({ where: { id } });
+    if (!product) throw new NotFoundException('Mahsulot topilmadi!');
+
+    if (product.image) {
+      await this.fileService.deleteFile(product.image);
+      product.image = null;
+      const result = await this.repository.save(product);
+      return this.withImageUrl(result);
+    }
+
+    return this.withImageUrl(product);
+  }
+
   async findByIds(dto: OrderProductDto[]) {
     // 1. ID-larni yig'ish
     const productIds = dto.map((d) => d.product_id);

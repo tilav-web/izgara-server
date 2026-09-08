@@ -18,6 +18,7 @@ import { OrderStatusEnum } from '../../order/enums/order-status.enum';
 import { PaymentStatusEnum } from '../../payment/enums/payment-status.enum';
 import { DeliveryAssignmentsService } from '../../deliveryAssignments/delivery_assignments.service';
 import { OrderService } from '../../order/services/order.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class OrderBotService implements OnModuleInit {
@@ -33,6 +34,7 @@ export class OrderBotService implements OnModuleInit {
     private readonly authRepository: Repository<Auth>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    private readonly configService: ConfigService,
   ) {}
 
   onModuleInit() {
@@ -571,6 +573,85 @@ export class OrderBotService implements OnModuleInit {
           this.formatUnknownError(error),
         );
       }
+    }
+  }
+
+  async sendIikoErrorNotification(orderId: string, errorMessage?: string) {
+    try {
+      const order = await this.orderRepository.findOne({
+        where: { id: orderId },
+        relations: { user: true, items: true },
+      });
+
+      if (!order) return;
+
+      const bot = this.botService.getBot();
+      const shortError = (errorMessage || "Noma'lum xatolik").slice(0, 250);
+      const orderNum = order.order_number || order.id.slice(0, 8);
+
+      const text = [
+        '🚨 <b>IIKO XATOLIGI: Buyurtma IIKO ga bormadi!</b>',
+        '',
+        `📌 <b>Buyurtma:</b> #${orderNum}`,
+        `👤 <b>Mijoz:</b> ${order.user?.first_name || '-'} (${order.customer_phone || '-'})`,
+        `💰 <b>Umumiy summa:</b> ${Number(order.total_price || 0).toLocaleString('uz-UZ')} so'm`,
+        `💳 <b>To'lov usuli:</b> ${this.formatPaymentMethod(order.payment_method)} (${this.formatPaymentStatus(order.payment_status)})`,
+        `⚠️ <b>Xatolik sababi:</b> <code>${this.escapeHtml(shortError)}</code>`,
+        '',
+        '❗ <i>Iltimos, IIKO kassa terminali yoqilganligini, smena ochiqligini yoki internetni tekshiring!</i>',
+      ].join('\n');
+
+      // 1. .env dagi umumiy admin chat/guruh ID ga yuborish
+      const adminChatId =
+        this.configService.get<string>('TELEGRAM_ADMIN_CHAT_ID') ||
+        this.configService.get<string>('IIKO_ADMIN_CHAT_ID');
+
+      if (adminChatId) {
+        try {
+          await bot.api.sendMessage(adminChatId, text, {
+            parse_mode: 'HTML',
+            link_preview_options: { is_disabled: true },
+          });
+        } catch (err) {
+          this.logger.error(
+            `Failed to send IIKO error notification to adminChatId=${adminChatId}`,
+            err,
+          );
+        }
+      }
+
+      // 2. Bazadagi barcha faol superadminlarga yuborish
+      const admins = await this.authRepository.find({
+        where: {
+          role: AuthRoleEnum.SUPERADMIN,
+          status: AuthStatusEnum.ACTIVE,
+          telegram_status: TelegramStatusEnum.ACTIVE,
+        },
+        select: { id: true, telegram_id: true },
+      });
+
+      for (const admin of admins) {
+        if (!admin.telegram_id || String(admin.telegram_id) === adminChatId) {
+          continue;
+        }
+
+        try {
+          await bot.api.sendMessage(admin.telegram_id, text, {
+            parse_mode: 'HTML',
+            link_preview_options: { is_disabled: true },
+          });
+        } catch (err) {
+          this.logger.error(
+            `Failed to send IIKO error notification to superadmin=${admin.id}`,
+            err,
+          );
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to send IIKO error notification for order=${orderId}`,
+        this.formatUnknownError(error),
+      );
     }
   }
 }

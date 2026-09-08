@@ -27,7 +27,7 @@ export class Product {
   price: number;
 
   @Column({ type: 'text', nullable: true, default: null })
-  image: string;
+  image: string | null;
 
   @Column()
   vat: number; // QQS stavkasi foizda
